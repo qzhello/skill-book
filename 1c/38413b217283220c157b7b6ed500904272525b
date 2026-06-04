@@ -1,0 +1,15 @@
+internal/scanner/frontmatter.go
+  ai_agent 1-33
+go.mod
+  ai_agent 4-5
+go.sum
+  ai_agent 1-4
+internal/scanner/frontmatter_test.go
+  ai_agent 1-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1c38413b217283220c157b7b6ed500904272525b",
+  "prompts": {}
+}
