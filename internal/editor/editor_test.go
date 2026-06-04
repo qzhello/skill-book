@@ -72,3 +72,26 @@ func TestSave_RejectsPathOutsideRepo(t *testing.T) {
 		t.Fatal("expected rejection of path outside repo")
 	}
 }
+
+func TestSave_RejectsSymlinkEscape(t *testing.T) {
+	// repo 内建一个指向 repo 外目录的符号链接，尝试经由该链接写入 repo 外路径，应被拒绝。
+	repo := t.TempDir()
+	outside := t.TempDir()
+
+	link := filepath.Join(repo, "escape")
+	if err := os.Symlink(outside, link); err != nil {
+		t.Skipf("symlink unsupported in this environment: %v", err)
+	}
+
+	// 经由符号链接构造的路径：repo/escape/evil.md -> outside/evil.md
+	target := filepath.Join(link, "evil.md")
+
+	ed := New(repo)
+	if err := ed.Save(target, "pwned"); err == nil {
+		t.Fatal("expected rejection of symlink escape")
+	}
+	// 外部文件不应被创建。
+	if _, err := os.Stat(filepath.Join(outside, "evil.md")); !os.IsNotExist(err) {
+		t.Fatalf("outside file should not exist, stat err=%v", err)
+	}
+}
