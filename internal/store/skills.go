@@ -1,6 +1,10 @@
 package store
 
-import "skillbook/internal/model"
+import (
+	"strings"
+
+	"skillbook/internal/model"
+)
 
 // Upsert 写入或更新一条 skill，并同步 FTS。
 func (s *Store) Upsert(sk model.Skill) error {
@@ -60,4 +64,36 @@ func (s *Store) List() ([]model.Skill, error) {
 	}
 	defer rows.Close()
 	return scanRows(rows)
+}
+
+// Search 用 FTS5 前缀匹配查询；空 query 等价于 List。
+func (s *Store) Search(query string) ([]model.Skill, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return s.List()
+	}
+	match := query + "*"
+	rows, err := s.db.Query(`
+SELECT s.source,s.dir,s.file_path,s.name,s.description,s.body,s.mtime
+FROM skills_fts f JOIN skills s ON s.rowid=f.rowid
+WHERE skills_fts MATCH ? ORDER BY rank`, match)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRows(rows)
+}
+
+// Get 按 ID 取单条，不存在返回 (nil,nil)。
+func (s *Store) Get(id string) (*model.Skill, error) {
+	row := s.db.QueryRow(`SELECT source,dir,file_path,name,description,body,mtime FROM skills WHERE id=?`, id)
+	var sk model.Skill
+	err := row.Scan(&sk.Source, &sk.Dir, &sk.FilePath, &sk.Name, &sk.Description, &sk.Body, &sk.MTime)
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows") {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &sk, nil
 }
