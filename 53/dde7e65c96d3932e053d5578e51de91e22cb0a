@@ -1,0 +1,23 @@
+internal/server/server.go
+  ai_agent 71,73,86-88,141-142
+internal/store/store.go
+  ai_agent 20,38-39
+internal/store/skills_test.go
+  ai_agent 73,75-82,84,88-95
+internal/store/skills.go
+  ai_agent 24-25,28-30,104-111,113,116,118-127,130
+internal/server/web/style.css
+  ai_agent 183
+internal/model/skill.go
+  ai_agent 24,33-36
+internal/server/web/app.js
+  ai_agent 22-23,51-55,91-92,98-99,122,142-147,150,222,263-268
+internal/scanner/scanner.go
+  ai_agent 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "53dde7e65c96d3932e053d5578e51de91e22cb0a",
+  "prompts": {}
+}
