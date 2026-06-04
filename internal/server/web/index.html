@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SkillBook</title>
+<link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
+</head>
+<body>
+<header>
+  <h1>SkillBook</h1>
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="搜索 skill…" />
+    <button id="scan">扫描</button>
+  </div>
+</header>
+<main>
+  <aside id="list" class="list"><p class="empty">点「扫描」加载本机 skill。</p></aside>
+  <section id="detail" class="detail"></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
