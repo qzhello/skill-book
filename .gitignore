@@ -1,0 +1,4 @@
+/skillbook
+/skillbook.db
+*.db-wal
+*.db-shm
