@@ -217,10 +217,23 @@ function ensureEditor() {
   state.editor = CodeMirror.fromTextArea(el.ed, { mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true });
   state.editor.on("change", () => { el.dirty.hidden = state.editor.getValue() === state.baseline; });
 }
+function splitFrontmatter(md) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md || "");
+  if (!m) return { fm: null, body: md || "" };
+  return { fm: m[1], body: (md || "").slice(m[0].length) };
+}
 function renderPreview() {
   const md = state.editor ? state.editor.getValue() : (state.current ? state.current.body : "");
-  const html = window.marked ? marked.parse(md || "") : esc(md);
-  el.preview.innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+  const { fm, body } = splitFrontmatter(md);
+  let html = "";
+  if (fm) {
+    const rows = fm.split(/\r?\n/).filter((l) => l.trim() && /^[A-Za-z0-9_-]+\s*:/.test(l))
+      .map((l) => { const i = l.indexOf(":"); return `<div class="fm-row"><span class="fm-k">${esc(l.slice(0, i))}</span>${esc(l.slice(i + 1).trim())}</div>`; }).join("");
+    if (rows) html += `<div class="fm-card">${rows}</div>`;
+  }
+  const bodyHtml = window.marked ? marked.parse(body || "") : esc(body);
+  html += window.DOMPurify ? DOMPurify.sanitize(bodyHtml) : bodyHtml;
+  el.preview.innerHTML = html;
 }
 function setMode(m) {
   state.mode = m;
