@@ -1,0 +1,13 @@
+internal/editor/editor_test.go
+  ai_agent 46-67,75-95
+internal/gitsync/git.go
+  ai_agent 5,8-12,14-18,20,24
+internal/editor/editor.go
+  ai_agent 18-21,31-45,48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "df8e7cbc5fc0868cdfb5e4aa95a3d74ec023f8df",
+  "prompts": {}
+}
