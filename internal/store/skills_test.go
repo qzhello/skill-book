@@ -70,17 +70,28 @@ func TestGetByID(t *testing.T) {
 	}
 }
 
-func TestConflicts_SameNameDifferentSource(t *testing.T) {
+func TestNameGroups_ConflictVsDuplicate(t *testing.T) {
 	st := newTestStore(t)
-	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/foo", FilePath: "/u/foo/SKILL.md", Name: "foo", MTime: 1})
-	_ = st.Upsert(model.Skill{Source: model.SourcePlugin, Dir: "/p/foo", FilePath: "/p/foo/SKILL.md", Name: "foo", MTime: 1})
-	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/bar", FilePath: "/u/bar/SKILL.md", Name: "bar", MTime: 1})
+	// foo: 同名但内容不同 → 真冲突
+	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/foo", FilePath: "/u/foo/SKILL.md", Name: "foo", BodyHash: "h1", MTime: 1})
+	_ = st.Upsert(model.Skill{Source: model.SourcePlugin, Dir: "/p/foo", FilePath: "/p/foo/SKILL.md", Name: "foo", BodyHash: "h2", MTime: 1})
+	// baz: 同名且内容一致 → 重复
+	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/baz", FilePath: "/u/baz/SKILL.md", Name: "baz", BodyHash: "same", MTime: 1})
+	_ = st.Upsert(model.Skill{Source: model.SourcePlugin, Dir: "/p/baz", FilePath: "/p/baz/SKILL.md", Name: "baz", BodyHash: "same", MTime: 1})
+	// bar: 唯一 → 既不冲突也不重复
+	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/bar", FilePath: "/u/bar/SKILL.md", Name: "bar", BodyHash: "x", MTime: 1})
 
-	names, err := st.ConflictNames()
+	conflicts, dups, counts, err := st.NameGroups()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 1 || names[0] != "foo" {
-		t.Fatalf("want [foo], got %+v", names)
+	if len(conflicts) != 1 || conflicts[0] != "foo" {
+		t.Fatalf("want conflicts [foo], got %+v", conflicts)
+	}
+	if len(dups) != 1 || dups[0] != "baz" {
+		t.Fatalf("want dups [baz], got %+v", dups)
+	}
+	if counts["foo"] != 2 || counts["baz"] != 2 {
+		t.Fatalf("want counts foo=2 baz=2, got %+v", counts)
 	}
 }

@@ -21,12 +21,13 @@ func (s *Store) Upsert(sk model.Skill) error {
 		return err
 	}
 	res, err := tx.Exec(`
-INSERT INTO skills(id,source,dir,file_path,name,description,body,mtime)
-VALUES(?,?,?,?,?,?,?,?)
+INSERT INTO skills(id,source,dir,file_path,name,description,body,body_hash,mtime)
+VALUES(?,?,?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
   source=excluded.source, dir=excluded.dir, file_path=excluded.file_path,
-  name=excluded.name, description=excluded.description, body=excluded.body, mtime=excluded.mtime`,
-		id, sk.Source, sk.Dir, sk.FilePath, sk.Name, sk.Description, sk.Body, sk.MTime)
+  name=excluded.name, description=excluded.description, body=excluded.body,
+  body_hash=excluded.body_hash, mtime=excluded.mtime`,
+		id, sk.Source, sk.Dir, sk.FilePath, sk.Name, sk.Description, sk.Body, sk.BodyHash, sk.MTime)
 	if err != nil {
 		return err
 	}
@@ -100,20 +101,31 @@ func (s *Store) Get(id string) (*model.Skill, error) {
 	return &sk, nil
 }
 
-// ConflictNames 返回出现在 >1 条记录里的 name（即跨来源/跨目录同名）。
-func (s *Store) ConflictNames() ([]string, error) {
-	rows, err := s.db.Query(`SELECT name FROM skills GROUP BY name HAVING COUNT(*)>1 ORDER BY name`)
+// NameGroups 分析同名 skill：返回真冲突与重复两类 name。
+//   - conflicts：同名但内容不同（body_hash 有多个）→ 需要关注。
+//   - dups：同名且内容完全一致（同一份装了多处）→ 仅提示重复。
+// 同时返回每个 name 的副本总数，供 UI 显示“重复 ×N”。
+func (s *Store) NameGroups() (conflicts, dups []string, counts map[string]int, err error) {
+	rows, err := s.db.Query(`
+SELECT name, COUNT(*) AS c, COUNT(DISTINCT body_hash) AS d
+FROM skills GROUP BY name HAVING c > 1 ORDER BY name`)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
-	var out []string
+	counts = map[string]int{}
 	for rows.Next() {
-		var n string
-		if err := rows.Scan(&n); err != nil {
-			return nil, err
+		var name string
+		var c, d int
+		if err := rows.Scan(&name, &c, &d); err != nil {
+			return nil, nil, nil, err
 		}
-		out = append(out, n)
+		counts[name] = c
+		if d > 1 {
+			conflicts = append(conflicts, name)
+		} else {
+			dups = append(dups, name)
+		}
 	}
-	return out, rows.Err()
+	return conflicts, dups, counts, rows.Err()
 }

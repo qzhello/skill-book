@@ -19,6 +19,8 @@ const CAT_ORDER = ["user", "project", "plugin"];
 const state = {
   all: [],            // enriched skills
   conflicts: new Set(),
+  dups: new Set(),
+  dupCounts: {},
   scanned: false,
   query: "",
   cat: "all",         // all | user | project | plugin | conflict
@@ -45,6 +47,11 @@ function highlight(name, q) {
   const i = name.toLowerCase().indexOf(q);
   if (i < 0) return esc(name);
   return esc(name.slice(0, i)) + "<mark>" + esc(name.slice(i, i + q.length)) + "</mark>" + esc(name.slice(i + q.length));
+}
+function flagBadge(s) {
+  if (s.conflict) return '<span class="badge conflict" title="同名但内容不同">冲突</span>';
+  if (s.dup) return `<span class="badge dup" title="同名且内容一致，重复安装">重复 ×${s.dupCount}</span>`;
+  return "";
 }
 function toast(msg, kind = "ok") {
   const t = document.createElement("div");
@@ -81,11 +88,15 @@ async function doScan() {
 async function loadAll() {
   const data = await API.all();
   state.conflicts = new Set(data.conflicts || []);
+  state.dups = new Set(data.dups || []);
+  state.dupCounts = data.dupCounts || {};
   state.all = (data.skills || []).map((s) => ({
     ...s,
     nameLower: (s.name || "").toLowerCase(),
     descLower: (s.description || "").toLowerCase(),
     conflict: state.conflicts.has(s.name),
+    dup: state.dups.has(s.name),
+    dupCount: state.dupCounts[s.name] || 0,
   }));
   state.scanned = state.all.length > 0;
   el.count.hidden = !state.scanned;
@@ -108,6 +119,7 @@ function compute() {
   const q = state.query.trim().toLowerCase();
   let base = state.all;
   if (state.cat === "conflict") base = base.filter((s) => s.conflict);
+  else if (state.cat === "dup") base = base.filter((s) => s.dup);
   else if (state.cat !== "all") base = base.filter((s) => s.source === state.cat);
 
   if (!q) {
@@ -127,10 +139,15 @@ function compute() {
 function renderChips() {
   if (!state.scanned) { el.chips.hidden = true; return; }
   el.chips.hidden = false;
-  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, conflict: 0 };
-  for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.conflict) counts.conflict++; }
+  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, conflict: 0, dup: 0 };
+  for (const s of state.all) {
+    counts[s.source] = (counts[s.source] || 0) + 1;
+    if (s.conflict) counts.conflict++;
+    if (s.dup) counts.dup++;
+  }
   const defs = [["all", "全部"], ["user", "用户级"], ["project", "项目级"], ["plugin", "插件"]];
   if (counts.conflict) defs.push(["conflict", "冲突"]);
+  if (counts.dup) defs.push(["dup", "重复"]);
   el.chips.innerHTML = defs.map(([k, label]) =>
     `<button class="chip ${state.cat === k ? "active" : ""}" data-cat="${k}">${label}<span class="ct">${counts[k] || 0}</span></button>`
   ).join("");
@@ -197,13 +214,12 @@ function renderOverview() {
 
 /* ---------- results virtual list ---------- */
 function rowHTML(s, idx, animate) {
-  const conf = s.conflict ? '<span class="badge conflict">冲突</span>' : "";
   const cls = "row" + (idx === state.cursor ? " cursor" : "") + (animate ? " enter" : "");
   const delay = animate ? `style="animation-delay:${Math.min(idx, 14) * 26}ms"` : "";
   return `<div class="${cls}" ${delay} data-idx="${idx}" data-id="${s.id}">
     <div class="row-main">
       <div class="row-name">${highlight(s.name, state.query.trim().toLowerCase())}
-        <span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${conf}</div>
+        <span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flagBadge(s)}</div>
       <div class="row-desc">${esc(s.description || "—")}</div>
     </div>
   </div>`;
@@ -244,8 +260,12 @@ async function openDetail(id, fromSearch) {
   if (!s || s.error) { toast("无法打开该 skill", "err"); return; }
   state.current = s;
   el.sheetName.textContent = s.name;
-  const conf = state.conflicts.has(s.name) ? '<span class="badge conflict">同名冲突</span>' : "";
-  el.sheetBadges.innerHTML = `<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${conf}`;
+  const flag = flagBadge({
+    conflict: state.conflicts.has(s.name),
+    dup: state.dups.has(s.name),
+    dupCount: state.dupCounts[s.name] || 0,
+  });
+  el.sheetBadges.innerHTML = `<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flag}`;
   el.sheetPath.textContent = s.file_path;
   el.dirty.hidden = true;
 
