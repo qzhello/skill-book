@@ -50,6 +50,7 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 				Name:        name,
 				Description: desc,
 				Body:        string(content),
+				BodyHash:    model.HashBody(string(content)),
 				MTime:       mtime,
 			})
 			return nil

@@ -68,9 +68,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
-	conflicts, err := s.st.ConflictNames()
+	conflicts, dups, dupCounts, err := s.st.NameGroups()
 	if err != nil {
-		log.Printf("handleList: ConflictNames failed: %v", err)
+		log.Printf("handleList: NameGroups failed: %v", err)
 	}
 	type item struct {
 		ID          string `json:"id"`
@@ -83,7 +83,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	for _, sk := range skills {
 		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), sk.Description, sk.Dir})
 	}
-	writeJSON(w, 200, map[string]any{"conflicts": conflicts, "skills": out})
+	writeJSON(w, 200, map[string]any{
+		"conflicts": conflicts, "dups": dups, "dupCounts": dupCounts, "skills": out,
+	})
 }
 
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +138,8 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 		name = filepath.Base(sk.Dir)
 	}
 	updated := model.Skill{Source: sk.Source, Dir: sk.Dir, FilePath: sk.FilePath,
-		Name: name, Description: desc, Body: string(content), MTime: sk.MTime}
+		Name: name, Description: desc, Body: string(content),
+		BodyHash: model.HashBody(string(content)), MTime: sk.MTime}
 	if err := s.st.Upsert(updated); err != nil {
 		// 文件已成功保存，仅索引更新失败，记日志后仍返回 200。
 		log.Printf("handleSave: Upsert index update failed for %s: %v", sk.FilePath, err)
