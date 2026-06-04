@@ -1,0 +1,11 @@
+internal/store/skills.go
+  ai_agent 3-7,68-98
+internal/store/skills_test.go
+  ai_agent 42-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "e6eebf8eaa87b73be0df45dcad173f98eecc8de4",
+  "prompts": {}
+}
