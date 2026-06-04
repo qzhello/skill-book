@@ -35,6 +35,18 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/skills/{id}", s.handleGet)
 	mux.HandleFunc("PUT /api/skills/{id}", s.handleSave)
 
+	// 配置
+	mux.HandleFunc("GET /api/config", s.handleGetConfig)
+	mux.HandleFunc("PUT /api/config", s.handlePutConfig)
+	mux.HandleFunc("POST /api/ai/test", s.handleAITest)
+	// AI
+	mux.HandleFunc("GET /api/recipes", s.handleRecipes)
+	mux.HandleFunc("POST /api/ai/optimize", s.handleOptimize)
+	mux.HandleFunc("POST /api/ai/create", s.handleCreate)
+	// 文件操作
+	mux.HandleFunc("POST /api/skills/new", s.handleNewSkill)
+	mux.HandleFunc("POST /api/reveal", s.handleReveal)
+
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))
 	return mux
