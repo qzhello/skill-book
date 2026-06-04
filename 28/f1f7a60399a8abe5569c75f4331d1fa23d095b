@@ -1,0 +1,11 @@
+internal/scanner/scanner_test.go
+  ai_agent 1-54
+internal/scanner/scanner.go
+  ai_agent 1-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "28f1f7a60399a8abe5569c75f4331d1fa23d095b",
+  "prompts": {}
+}
