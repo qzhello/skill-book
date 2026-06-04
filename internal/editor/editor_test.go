@@ -43,6 +43,28 @@ func TestSave_WritesFileAndCommits(t *testing.T) {
 	}
 }
 
+func TestSave_NoGitRepo_SkipsCommitGracefully(t *testing.T) {
+	// 非 git 目录：Save 应成功写文件，且不报错、不产生 .git 目录。
+	repo := t.TempDir()
+	skillDir := filepath.Join(repo, "skills", "foo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(skillDir, "SKILL.md")
+
+	ed := New(repo)
+	if err := ed.Save(file, "new content"); err != nil {
+		t.Fatalf("expected success in non-git dir, got %v", err)
+	}
+	got, _ := os.ReadFile(file)
+	if string(got) != "new content" {
+		t.Fatalf("file not written: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".git")); !os.IsNotExist(err) {
+		t.Fatalf("expected no .git dir to be created, stat err=%v", err)
+	}
+}
+
 func TestSave_RejectsPathOutsideRepo(t *testing.T) {
 	repo := t.TempDir()
 	ed := New(repo)
