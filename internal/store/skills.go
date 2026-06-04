@@ -97,3 +97,21 @@ func (s *Store) Get(id string) (*model.Skill, error) {
 	}
 	return &sk, nil
 }
+
+// ConflictNames 返回出现在 >1 条记录里的 name（即跨来源/跨目录同名）。
+func (s *Store) ConflictNames() ([]string, error) {
+	rows, err := s.db.Query(`SELECT name FROM skills GROUP BY name HAVING COUNT(*)>1 ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}

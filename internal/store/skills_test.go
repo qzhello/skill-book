@@ -69,3 +69,18 @@ func TestGetByID(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestConflicts_SameNameDifferentSource(t *testing.T) {
+	st := newTestStore(t)
+	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/foo", FilePath: "/u/foo/SKILL.md", Name: "foo", MTime: 1})
+	_ = st.Upsert(model.Skill{Source: model.SourcePlugin, Dir: "/p/foo", FilePath: "/p/foo/SKILL.md", Name: "foo", MTime: 1})
+	_ = st.Upsert(model.Skill{Source: model.SourceUser, Dir: "/u/bar", FilePath: "/u/bar/SKILL.md", Name: "bar", MTime: 1})
+
+	names, err := st.ConflictNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "foo" {
+		t.Fatalf("want [foo], got %+v", names)
+	}
+}
