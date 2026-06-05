@@ -33,8 +33,9 @@ func (s *Server) skillForPath(abs string) *model.Skill {
 	if err != nil {
 		return nil
 	}
+	realAbs := resolveReal(abs)
 	for i := range skills {
-		rel, err := filepath.Rel(skills[i].Dir, abs)
+		rel, err := filepath.Rel(resolveReal(skills[i].Dir), realAbs)
 		if err != nil {
 			continue
 		}
@@ -44,6 +45,20 @@ func (s *Server) skillForPath(abs string) *model.Skill {
 		return &skills[i]
 	}
 	return nil
+}
+
+// resolveReal 解析路径中已存在部分的符号链接，防止 symlink 绕过白名单。
+// 对不存在的叶子（如待写入的新文件），解析其最深的已存在祖先后再拼回。
+func resolveReal(p string) string {
+	p = filepath.Clean(p)
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	dir := filepath.Dir(p)
+	if dir == p {
+		return p
+	}
+	return filepath.Join(resolveReal(dir), filepath.Base(p))
 }
 
 // handleSkillFiles 列出某 skill 目录下的完整文件树。
@@ -146,7 +161,6 @@ func (s *Server) handleGetFile(w http.ResponseWriter, r *http.Request) {
 // handlePutFile 写入白名单内某文件，写盘 + git 提交；若是 SKILL.md 则重索引。
 // PUT /api/file  body {path, content}
 func (s *Server) handlePutFile(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 	var body struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
@@ -209,7 +223,6 @@ func (s *Server) handleTrash(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "仅 macOS 支持移到废纸篓"})
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var body struct {
 		Dirs []string `json:"dirs"`
 	}
