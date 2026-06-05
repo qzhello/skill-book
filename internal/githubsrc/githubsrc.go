@@ -52,6 +52,9 @@ func ParseURL(u string) (owner, repo, ref, subpath string, err error) {
 	if !strings.EqualFold(parsed.Host, HostGitHub) {
 		return "", "", "", "", ErrNotGitHub
 	}
+	if parsed.User != nil { // 拒绝 user:pass@github.com 形态
+		return "", "", "", "", ErrNotGitHub
+	}
 
 	// 切分路径段，去掉空段。
 	raw := strings.Trim(parsed.Path, "/")

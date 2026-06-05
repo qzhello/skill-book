@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -252,7 +254,9 @@ func (s *Server) handleSourceApply(w http.ResponseWriter, r *http.Request) {
 	if !insideGitWorktree(sk.Dir) {
 		if existing, err := os.ReadFile(sk.FilePath); err == nil {
 			bak := sk.FilePath + ".bak"
-			_ = os.WriteFile(bak, existing, 0o644)
+			if err := os.WriteFile(bak, existing, 0o644); err != nil {
+				log.Printf("apply: 备份 %s 失败: %v（仍继续覆写）", bak, err)
+			}
 		}
 	}
 
@@ -298,7 +302,17 @@ func fetchRaw(ctx context.Context, rawURL string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	client := &http.Client{Timeout: fetchTimeout}
+	client := &http.Client{
+		Timeout: fetchTimeout,
+		// 纵深防御：拒绝跳转到非 github 系主机，避免 SSRF。
+		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
+			h := strings.ToLower(req.URL.Hostname())
+			if h != githubsrc.HostRaw && h != githubsrc.HostGitHub {
+				return fmt.Errorf("blocked redirect to non-github host: %s", h)
+			}
+			return nil
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
