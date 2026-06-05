@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s);
 const el = {
   scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"),
-  q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"), stage: $("#stage"),
+  q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"), stage: $("#stage"), recentTags: $("#recentTags"),
   count: $("#count"), chips: $("#chips"),
   overview: $("#overview"), emptyHero: $("#emptyHero"),
   resultsView: $("#resultsView"), resultsMeta: $("#resultsMeta"),
@@ -209,6 +209,7 @@ function render() {
   const showOverview = state.scanned && !state.query.trim() && state.cat === "all";
   el.stage.classList.toggle("compact", state.scanned && !showOverview);
   el.stage.classList.toggle("home", showOverview); // 首页：搜索框居中聚焦
+  renderRecentTags(showOverview); // 最近搜索：搜索框下方小 tag，仅首页显示
   el.overview.hidden = !(showOverview || !state.scanned);
   el.resultsView.hidden = !state.scanned || showOverview;
   if (!state.scanned) { renderEmptyHero(); return; }
@@ -217,24 +218,26 @@ function render() {
 }
 function renderEmptyHero() { el.emptyHero.hidden = false; el.overview.innerHTML = ""; el.overview.appendChild(el.emptyHero); }
 
+// 最近搜索小 tag：紧贴搜索框下方，仅首页(home)显示。
+function renderRecentTags(show) {
+  const hist = show ? LS.history() : [];
+  if (!hist.length) { el.recentTags.hidden = true; el.recentTags.innerHTML = ""; return; }
+  el.recentTags.hidden = false;
+  el.recentTags.innerHTML = `<span class="rtag-label">最近</span>` + hist.map((h) =>
+    `<button class="rtag" data-hist="${esc(h)}"><svg class="rt-ico" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>${esc(h)}</button>`).join("") +
+    `<button class="rtag rtag-clear" data-act="clearhist" title="清除最近搜索">清除</button>`;
+}
+
 /* ---------- overview ---------- */
 function renderOverview() {
   el.emptyHero.hidden = true;
   const recents = LS.recents().filter((r) => state.all.some((s) => s.id === r.id));
-  const history = LS.history();
   const counts = { user: 0, project: 0, plugin: 0 };
   let dup = 0, conflict = 0;
   for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.dup) dup++; if (s.conflict) conflict++; }
   const total = state.all.length;
   const linked = state.linkedSources.size;
   let html = "";
-
-  // 最近搜索：紧贴搜索框下方、标签放大，便于一键重搜
-  if (history.length) {
-    html += `<div class="ov-section ov-recent-search"><div class="ov-head">最近搜索<span class="clear-hist" data-act="clearhist">清除</span></div>
-      <div class="hist-row">${history.map((h) =>
-        `<button class="hist-tag" data-hist="${esc(h)}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>${esc(h)}</button>`).join("")}</div></div>`;
-  }
 
   // 统计带：总数 / 有来源 / 重复 / 冲突，填充首屏并提供快捷筛选
   const stat = (cat, label, val, tone, clickable) =>
@@ -949,6 +952,10 @@ el.overview.addEventListener("click", (e) => {
   const tile = e.target.closest(".stat-tile.clickable"); if (tile) { const c = tile.dataset.cat; if (c === "dup" || c === "conflict") { openGroups(c); return; } state.cat = c; state.cursor = -1; renderChips(); render(); return; }
   const hist = e.target.closest(".hist-tag"); if (hist) { state.query = hist.dataset.hist; el.q.value = state.query; el.clear.hidden = false; render(); el.q.focus(); return; }
   const clr = e.target.closest('[data-act="clearhist"]'); if (clr) { e.stopPropagation(); LS.setHistory([]); renderOverview(); }
+});
+el.recentTags.addEventListener("click", (e) => {
+  const clr = e.target.closest('[data-act="clearhist"]'); if (clr) { LS.setHistory([]); renderRecentTags(true); return; }
+  const tag = e.target.closest(".rtag"); if (tag && tag.dataset.hist) { state.query = tag.dataset.hist; el.q.value = state.query; el.clear.hidden = false; render(); el.q.focus(); }
 });
 el.window.addEventListener("click", (e) => { const row = e.target.closest(".row"); if (row) openDetail(row.dataset.id, !!state.query.trim()); });
 el.viewport.addEventListener("scroll", () => requestAnimationFrame(renderWindow), { passive: true });

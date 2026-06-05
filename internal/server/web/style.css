@@ -89,6 +89,16 @@ body{
 .hero-tagline{height:0;margin:0;opacity:0;overflow:hidden;font-size:15px;color:var(--text-dim);letter-spacing:.01em;
   transition:height var(--dur-slow) var(--ease),opacity var(--dur-slow) var(--ease),margin var(--dur-slow) var(--ease)}
 .stage.home .hero-tagline{height:22px;margin-bottom:16px;opacity:1}
+/* 最近搜索：搜索框下方的小 tag 行 */
+.recent-tags{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;width:100%;max-width:760px;margin:14px auto 0}
+.rtag-label{font-size:11.5px;color:var(--muted);margin-right:2px}
+.rtag{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-family:inherit;font-size:12px;color:var(--text-dim);
+  padding:4px 11px;border-radius:999px;background:var(--surface);border:1px solid var(--line);transition:all var(--dur) var(--ease)}
+.rtag:hover{border-color:var(--accent);color:#fff;transform:translateY(-1px)}
+.rtag .rt-ico{color:var(--muted)}
+.rtag:hover .rt-ico{color:var(--accent)}
+.rtag-clear{color:var(--muted)}
+.rtag-clear:hover{border-color:var(--danger);color:#ff8b8b;transform:none}
 .stage.compact .search-hero{padding:12px 24px 8px}
 .search-wrap{position:relative;display:flex;align-items:center;gap:10px;width:100%;max-width:720px;
   padding:0 14px;height:54px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);
@@ -144,11 +154,6 @@ body{
 .hist-tag{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text-dim);
   padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);transition:all var(--dur) var(--ease)}
 .hist-tag:hover{border-color:var(--accent);color:#fff}
-/* 最近搜索：贴近搜索框、标签更大更醒目 */
-.ov-recent-search{margin-top:-2px;margin-bottom:20px}
-.stage.home .ov-recent-search .hist-row{justify-content:center}
-.ov-recent-search .hist-tag{font-size:14.5px;padding:9px 16px}
-.ov-recent-search .hist-tag svg{width:16px;height:16px}
 .hist-tag svg{color:var(--muted)}
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .cat-card{display:flex;align-items:center;gap:13px;cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
