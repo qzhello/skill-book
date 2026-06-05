@@ -71,20 +71,22 @@
     </div>
     <section id="sheet" class="detail" hidden aria-hidden="true">
   <div class="sheet-head">
-    <button id="sheetFull" class="icon-btn" title="折叠/展开左侧栏" aria-label="折叠左侧栏">
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
-    </button>
-    <div class="sheet-title">
-      <h3 id="sheetName"></h3>
-      <span id="sheetBadges" class="sheet-badges"></span>
-      <button id="sourceChip" class="src-chip" type="button"></button>
+    <div class="sheet-head-left">
+      <button id="sheetFull" class="icon-btn" title="折叠/展开左侧栏" aria-label="折叠左侧栏">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <div class="sheet-title">
+        <h3 id="sheetName"></h3>
+        <span id="sheetBadges" class="sheet-badges"></span>
+        <button id="sourceChip" class="src-chip" type="button"></button>
+      </div>
+    </div>
+    <div class="seg seg-center" id="modeSeg">
+      <button class="seg-btn active" data-mode="view">浏览</button>
+      <button class="seg-btn" data-mode="edit">编辑</button>
+      <button class="seg-btn" data-mode="split">双屏</button>
     </div>
     <div class="sheet-tools">
-      <div class="seg" id="modeSeg">
-        <button class="seg-btn active" data-mode="view">浏览</button>
-        <button class="seg-btn" data-mode="edit">编辑</button>
-        <button class="seg-btn" data-mode="split">双屏</button>
-      </div>
       <button id="findBtn" class="icon-btn" title="查找 (⌘F)">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </button>
@@ -107,6 +109,7 @@
     <div id="fileTree" class="file-tree"></div>
     <div class="sheet-main" id="sheetMain">
       <div id="editorWrap" class="sheet-editor" hidden><textarea id="ed"></textarea></div>
+      <div id="splitGutter" class="split-gutter" hidden title="拖拽调整左右宽度" aria-label="拖拽调整宽度"></div>
       <div id="preview" class="md-preview"></div>
       <div id="binaryNote" class="binary-note" hidden>二进制 / 超大文件，不支持在此编辑。</div>
     </div>

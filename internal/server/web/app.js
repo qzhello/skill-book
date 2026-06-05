@@ -15,7 +15,7 @@ const el = {
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
-  modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"),
+  modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"), splitGutter: $("#splitGutter"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   save: $("#save"), dirty: $("#dirty"),
@@ -310,26 +310,63 @@ function ensureEditor() {
   state.editor.getScrollerElement().addEventListener("scroll", syncFromEditor, { passive: true });
   el.preview.addEventListener("scroll", syncFromPreview, { passive: true });
 }
-// 双屏同步滚动：按滚动百分比对齐两侧，flag 防止互相触发。
+// 双屏同步滚动：基于源码行锚点对齐（不是纯百分比），让两侧看到的是同一段内容。
 // 用 setTimeout 清 flag（requestAnimationFrame 在无重绘/后台时可能不触发，导致 flag 卡死）。
 let scrollSyncing = false;
-function endSync() { setTimeout(() => { scrollSyncing = false; }, 80); }
+function endSync() { setTimeout(() => { scrollSyncing = false; }, 70); }
+// 编辑器顶部可视行 → 预览中对应的 y（在相邻锚点间线性插值）。
+function previewYForLine(line) {
+  const blks = el.preview.querySelectorAll(".pv-blk[data-line]");
+  if (!blks.length) {
+    const si = state.editor.getScrollInfo(); const d = si.height - si.clientHeight;
+    const r = d > 0 ? si.top / d : 0; return r * (el.preview.scrollHeight - el.preview.clientHeight);
+  }
+  let prev = null;
+  for (const b of blks) {
+    const bl = +b.dataset.line;
+    if (bl <= line) { prev = b; continue; }
+    if (!prev) return b.offsetTop;
+    const pl = +prev.dataset.line;
+    const ratio = bl > pl ? (line - pl) / (bl - pl) : 0;
+    return prev.offsetTop + ratio * (b.offsetTop - prev.offsetTop);
+  }
+  return prev ? prev.offsetTop : 0;
+}
+// 预览滚动位置 y → 编辑器对应的源码行（插值）。
+function lineForPreviewY(y) {
+  const blks = [...el.preview.querySelectorAll(".pv-blk[data-line]")];
+  if (!blks.length) return null;
+  let prev = null;
+  for (const b of blks) {
+    if (b.offsetTop <= y) { prev = b; continue; }
+    if (!prev) return +b.dataset.line;
+    const pl = +prev.dataset.line, bl = +b.dataset.line;
+    const span = b.offsetTop - prev.offsetTop;
+    const ratio = span > 0 ? (y - prev.offsetTop) / span : 0;
+    return pl + ratio * (bl - pl);
+  }
+  return prev ? +prev.dataset.line : 0;
+}
 function syncFromEditor() {
   if (state.mode !== "split" || scrollSyncing || !state.editor) return;
-  const si = state.editor.getScrollInfo();
-  const denom = si.height - si.clientHeight;
-  const ratio = denom > 0 ? si.top / denom : 0;
+  const cm = state.editor;
+  const top = cm.getScrollInfo().top;
+  // 分数行：行内插值，避免 lineAtHeight 在行边界处差一行
+  const ln = cm.lineAtHeight(top, "local");
+  const y0 = cm.heightAtLine(ln, "local"), y1 = cm.heightAtLine(ln + 1, "local");
+  const fracLine = ln + (y1 > y0 ? (top - y0) / (y1 - y0) : 0);
+  const y = previewYForLine(fracLine);
+  if (y == null) return;
   scrollSyncing = true;
-  el.preview.scrollTop = ratio * (el.preview.scrollHeight - el.preview.clientHeight);
+  el.preview.scrollTop = y;
   endSync();
 }
 function syncFromPreview() {
   if (state.mode !== "split" || scrollSyncing || !state.editor) return;
-  const denom = el.preview.scrollHeight - el.preview.clientHeight;
-  const ratio = denom > 0 ? el.preview.scrollTop / denom : 0;
+  const line = lineForPreviewY(el.preview.scrollTop);
+  if (line == null) return;
   scrollSyncing = true;
-  const si = state.editor.getScrollInfo();
-  state.editor.scrollTo(null, ratio * (si.height - si.clientHeight));
+  state.editor.scrollTo(null, state.editor.heightAtLine(Math.max(0, Math.floor(line)), "local"));
   endSync();
 }
 function splitFrontmatter(md) {
@@ -348,9 +385,27 @@ function renderPreview() {
       .map((l) => { const i = l.indexOf(":"); return `<div class="fm-row"><span class="fm-k">${esc(l.slice(0, i))}</span>${esc(l.slice(i + 1).trim())}</div>`; }).join("");
     if (rows) html += `<div class="fm-card">${rows}</div>`;
   }
-  const bodyHtml = window.marked ? marked.parse(body || "") : esc(body);
-  html += window.DOMPurify ? DOMPurify.sanitize(bodyHtml) : bodyHtml;
-  el.preview.innerHTML = html;
+  html += renderBodyWithAnchors(md, body || "");
+  el.preview.innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+}
+// 逐顶层 markdown 块包一层 data-line（源码起始行，0-based），供双屏按行对齐滚动。
+function renderBodyWithAnchors(md, body) {
+  if (!window.marked) return esc(body);
+  if (marked.lexer && marked.parser) {
+    try {
+      const tokens = marked.lexer(body);
+      const pre = md.slice(0, md.length - body.length);
+      let line = (pre.match(/\n/g) || []).length; // body 起始行
+      let out = "";
+      for (const tok of tokens) {
+        const single = [tok]; single.links = tokens.links || {};
+        out += `<div class="pv-blk" data-line="${line}">${marked.parser(single)}</div>`;
+        line += ((tok.raw || "").match(/\n/g) || []).length;
+      }
+      return out;
+    } catch (e) { /* 回退整体渲染 */ }
+  }
+  return marked.parse(body);
 }
 function setMode(m) {
   if (state.fileBinary) return;
@@ -359,16 +414,42 @@ function setMode(m) {
   el.sheetMain.classList.toggle("split", m === "split");
   if (m === "split") {
     ensureEditor();
-    el.editorWrap.hidden = false; el.preview.hidden = false;
+    const savedW = (() => { try { return localStorage.getItem("sb.splitW"); } catch { return null; } })();
+    if (savedW) el.sheetMain.style.setProperty("--split-w", savedW);
+    el.editorWrap.hidden = false; el.preview.hidden = false; el.splitGutter.hidden = false;
     renderPreview();
     setTimeout(() => { state.editor.refresh(); syncFromEditor(); }, 30);
   } else if (m === "edit") {
+    el.splitGutter.hidden = true;
     el.preview.hidden = true; el.editorWrap.hidden = false; ensureEditor();
     setTimeout(() => { state.editor.refresh(); state.editor.focus(); }, 30);
   } else {
+    el.splitGutter.hidden = true;
     el.editorWrap.hidden = true; el.preview.hidden = false; renderPreview();
   }
 }
+// 双屏中缝拖拽：调整左右宽度，存 localStorage 记住。
+(function initSplitGutter() {
+  let dragging = false;
+  el.splitGutter.addEventListener("mousedown", (e) => {
+    dragging = true; el.splitGutter.classList.add("dragging");
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none"; e.preventDefault();
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const rect = el.sheetMain.getBoundingClientRect();
+    let w = ((e.clientX - rect.left) / rect.width) * 100;
+    w = Math.max(20, Math.min(80, w));
+    el.sheetMain.style.setProperty("--split-w", w.toFixed(2) + "%");
+  });
+  window.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false; el.splitGutter.classList.remove("dragging");
+    document.body.style.cursor = ""; document.body.style.userSelect = "";
+    try { localStorage.setItem("sb.splitW", el.sheetMain.style.getPropertyValue("--split-w")); } catch { }
+    if (state.editor) { state.editor.refresh(); syncFromEditor(); }
+  });
+})();
 const FILE_SVG = '<svg class="ft-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
 const FOLDER_SVG = '<svg class="ft-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
 const CHEVRON_SVG = '<svg class="ft-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
