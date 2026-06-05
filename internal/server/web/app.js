@@ -22,6 +22,8 @@ const el = {
   cfgTest: $("#cfgTest"), cfgStatus: $("#cfgStatus"), cfgSave: $("#cfgSave"),
   newModal: $("#newModal"), newName: $("#newName"), newRecipe: $("#newRecipe"),
   newBrief: $("#newBrief"), newAiHint: $("#newAiHint"), newStatus: $("#newStatus"), newCreate: $("#newCreate"),
+  newModeSeg: $("#newModeSeg"), newCreateFields: $("#newCreateFields"), newImportFields: $("#newImportFields"),
+  importUrl: $("#importUrl"), importName: $("#importName"), newImport: $("#newImport"),
   diffModal: $("#diffModal"), diffOld: $("#diffOld"), diffNew: $("#diffNew"),
   diffOldLabel: $("#diffOldLabel"), diffNewLabel: $("#diffNewLabel"),
   diffApply: $("#diffApply"), diffDiscard: $("#diffDiscard"),
@@ -39,6 +41,7 @@ const state = {
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
   collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
+  diffMode: "ai", pendingUpdate: null,
   groupKind: "dup", groupSel: new Set(),
 };
 
@@ -94,6 +97,9 @@ const API = {
   getSource: (id) => fetch("/api/skills/" + id + "/source").then(J),
   putSource: (id, s) => fetch("/api/skills/" + id + "/source", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }),
   sources: () => fetch("/api/sources").then(J),
+  importSkill: (url, name) => fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, name }) }),
+  checkSource: (id) => fetch("/api/skills/" + id + "/source/check", { method: "POST" }),
+  applySource: (id, content) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
 };
 
 /* ---------- data load ---------- */
@@ -431,7 +437,8 @@ function renderSource() {
     el.sourceBox.innerHTML = `<span class="src-tag infer">检测到 Git 来源</span>${srcLink(s.source_url)}<button class="src-btn primary" data-act="src-adopt">采用</button><button class="src-btn" data-act="src-edit">编辑</button>`;
     return;
   }
-  el.sourceBox.innerHTML = `<span class="src-tag">${esc(KIND_LABEL[s.source_kind] || s.source_kind)}</span>${srcLink(s.source_url)}${s.source_ref ? `<span class="src-mut">@${esc(s.source_ref)}</span>` : ""}<span class="src-mut">· ${esc(SYNC_LABEL[s.sync_policy] || s.sync_policy)}</span><button class="src-btn" data-act="src-copy">复制</button><button class="src-btn" data-act="src-edit">编辑</button>${s.source_note ? `<div class="src-note">${esc(s.source_note)}</div>` : ""}`;
+  const checkBtn = s.source_kind === "github_repo" ? `<button class="src-btn" data-act="src-check">检查更新</button>` : "";
+  el.sourceBox.innerHTML = `<span class="src-tag">${esc(KIND_LABEL[s.source_kind] || s.source_kind)}</span>${srcLink(s.source_url)}${s.source_ref ? `<span class="src-mut">@${esc(s.source_ref)}</span>` : ""}<span class="src-mut">· ${esc(SYNC_LABEL[s.sync_policy] || s.sync_policy)}</span>${checkBtn}<button class="src-btn" data-act="src-copy">复制</button><button class="src-btn" data-act="src-edit">编辑</button>${s.source_note ? `<div class="src-note">${esc(s.source_note)}</div>` : ""}`;
 }
 async function saveSource(id, payload) {
   try {
@@ -463,6 +470,7 @@ async function doOptimize() {
     if (!res.ok) { toast("AI 优化失败", "err"); return; }
     const d = await res.json();
     state.aiResult = d.result || "";
+    state.diffMode = "ai";
     showDiff(state.editor.getValue(), state.aiResult);
   } catch { toast("AI 优化失败", "err"); }
   finally { el.aiOptimize.disabled = false; el.aiOptimize.classList.remove("loading"); }
@@ -495,8 +503,32 @@ function showDiff(oldT, newT, opts) {
   openModal(el.diffModal);
 }
 function applyDiff() {
-  if (state.aiResult) { ensureEditor(); state.editor.setValue(state.aiResult); setMode("edit"); el.dirty.hidden = state.editor.getValue() === state.baseline; toast("已应用 AI 稿，记得保存"); }
+  if (state.diffMode === "update" && state.pendingUpdate) { doApplyUpdate(); return; }
+  if (state.diffMode === "ai" && state.aiResult) { ensureEditor(); state.editor.setValue(state.aiResult); setMode("edit"); el.dirty.hidden = state.editor.getValue() === state.baseline; toast("已应用 AI 稿，记得保存"); }
   closeModal();
+}
+async function doCheckUpdate(id) {
+  toast("检查上游更新…");
+  try {
+    const res = await API.checkSource(id);
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error || "检查失败", "err"); return; }
+    const d = await res.json();
+    if (!d.has_update) { toast("已是最新版本"); return; }
+    state.diffMode = "update"; state.pendingUpdate = { id, content: d.remote_content };
+    showDiff(state.baseline || (state.current ? state.current.body : ""), d.remote_content || "", { oldLabel: "本地", newLabel: "上游最新", allowApply: true });
+  } catch { toast("检查失败", "err"); }
+}
+async function doApplyUpdate() {
+  if (!state.pendingUpdate) return;
+  const { id, content } = state.pendingUpdate;
+  if (!confirm("用上游最新内容覆盖本地 SKILL.md？\n（不在 git 仓库时会先备份为 SKILL.md.bak）")) return;
+  try {
+    const r = await API.applySource(id, content);
+    if (!r.ok) { toast("应用失败", "err"); return; }
+    toast("已应用上游更新"); state.pendingUpdate = null; closeModal();
+    await loadAll();
+    if (state.current && state.current.id === id) await openDetail(id, false);
+  } catch { toast("应用失败", "err"); }
 }
 
 /* ---------- dup/conflict groups ---------- */
@@ -558,6 +590,7 @@ async function grpCompare() {
   el.groupsBody.querySelectorAll(".copy-row").forEach((row) => { if (state.groupSel.has(row.dataset.path)) ids.push(row.dataset.id); });
   if (ids.length !== 2) return;
   const [a, b] = await Promise.all([API.get(ids[0]), API.get(ids[1])]);
+  state.diffMode = "compare";
   showDiff(a.body || "", b.body || "", { oldLabel: "副本 A", newLabel: "副本 B", allowApply: false });
 }
 
@@ -599,6 +632,7 @@ async function testConnection() {
 /* ---------- new skill ---------- */
 async function openNew() {
   el.newName.value = ""; el.newBrief.value = ""; el.newStatus.textContent = "";
+  el.importUrl.value = ""; el.importName.value = ""; setNewMode("create");
   try {
     const [rec, cfg] = await Promise.all([API.recipes(), API.config()]);
     el.newRecipe.innerHTML = (rec.recipes || []).map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
@@ -632,6 +666,30 @@ async function createSkill() {
     if (d.id) { await openDetail(d.id, false); setMode("edit"); }
   } catch { el.newStatus.textContent = "创建失败"; el.newStatus.className = "cfg-status err"; }
   finally { el.newCreate.disabled = false; }
+}
+
+function setNewMode(m) {
+  el.newModeSeg.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.nmode === m));
+  const imp = m === "import";
+  el.newCreateFields.hidden = imp; el.newImportFields.hidden = !imp;
+  el.newCreate.hidden = imp; el.newImport.hidden = !imp;
+  el.newStatus.textContent = "";
+}
+async function doImport() {
+  const url = el.importUrl.value.trim();
+  if (!url) { el.newStatus.textContent = "请填 GitHub 链接"; el.newStatus.className = "cfg-status err"; return; }
+  el.newImport.disabled = true; el.newStatus.textContent = "克隆中…（可能需要几秒）"; el.newStatus.className = "cfg-status busy";
+  try {
+    const res = await API.importSkill(url, el.importName.value.trim());
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = { 400: "链接非法或非 github.com", 409: "已存在同名 skill", 422: "该目录下没有 SKILL.md", 502: "克隆仓库失败" }[res.status] || d.error || "导入失败";
+      el.newStatus.textContent = msg; el.newStatus.className = "cfg-status err"; return;
+    }
+    await loadAll(); closeModal(); toast("已导入 " + (d.name || ""));
+    if (d.id) { await openDetail(d.id, false); }
+  } catch { el.newStatus.textContent = "导入失败"; el.newStatus.className = "cfg-status err"; }
+  finally { el.newImport.disabled = false; }
 }
 
 /* ---------- modal helpers ---------- */
@@ -711,6 +769,7 @@ el.sourceBox.addEventListener("click", async (e) => {
   if (act === "src-edit") { state.sourceEditing = true; renderSource(); }
   else if (act === "src-cancel") { state.sourceEditing = false; renderSource(); }
   else if (act === "src-copy") { if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url); toast("已复制来源链接"); }
+  else if (act === "src-check") { doCheckUpdate(id); }
   else if (act === "src-adopt") { await saveSource(id, { source_url: state.source.source_url, source_kind: state.source.source_kind, source_ref: state.source.source_ref || "", source_note: "", sync_policy: "check_only" }); }
   else if (act === "src-save") { await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), sync_policy: $("#srcSync").value, source_note: $("#srcNote").value.trim() }); }
   else if (act === "src-clear") { if (confirm("清除该 skill 的来源信息？")) await saveSource(id, { source_url: "" }); }
@@ -738,6 +797,8 @@ el.cfgSave.addEventListener("click", saveSettings);
 el.cfgTest.addEventListener("click", testConnection);
 el.newSkill.addEventListener("click", openNew);
 el.newCreate.addEventListener("click", createSkill);
+el.newImport.addEventListener("click", doImport);
+el.newModeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b) setNewMode(b.dataset.nmode); });
 el.diffApply.addEventListener("click", applyDiff);
 el.diffDiscard.addEventListener("click", closeModal);
 el.modalScrim.addEventListener("click", closeModal);
