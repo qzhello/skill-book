@@ -8,7 +8,7 @@ const el = {
   resultsView: $("#resultsView"), resultsMeta: $("#resultsMeta"),
   viewport: $("#viewport"), sizer: $("#sizer"), window: $("#window"),
   scrim: $("#scrim"), sheet: $("#sheet"), sheetName: $("#sheetName"),
-  sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
+  sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"), sourceBox: $("#sourceBox"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
@@ -30,6 +30,7 @@ const el = {
 
 const ROW_H = 60, OVERSCAN = 6;
 const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
+const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
 const CAT_ORDER = ["user", "project", "plugin"];
 
 const state = {
@@ -37,7 +38,7 @@ const state = {
   scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false,
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
-  collapsed: new Set(),
+  collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
   groupKind: "dup", groupSel: new Set(),
 };
 
@@ -90,6 +91,9 @@ const API = {
   putFile: (path, content) => fetch("/api/file", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) }),
   trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
   groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
+  getSource: (id) => fetch("/api/skills/" + id + "/source").then(J),
+  putSource: (id, s) => fetch("/api/skills/" + id + "/source", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }),
+  sources: () => fetch("/api/sources").then(J),
 };
 
 /* ---------- data load ---------- */
@@ -111,6 +115,7 @@ async function loadAll() {
   state.scanned = state.all.length > 0;
   el.count.hidden = !state.scanned;
   el.count.textContent = `${state.all.length} skills`;
+  try { const sd = await API.sources(); state.linkedSources = new Set(sd.linked || []); } catch { state.linkedSources = new Set(); }
   renderChips(); render();
 }
 
@@ -129,6 +134,8 @@ function compute() {
   let base = state.all;
   if (state.cat === "conflict") base = base.filter((s) => s.conflict);
   else if (state.cat === "dup") base = base.filter((s) => s.dup);
+  else if (state.cat === "linked") base = base.filter((s) => state.linkedSources.has(s.id));
+  else if (state.cat === "unlinked") base = base.filter((s) => !state.linkedSources.has(s.id));
   else if (state.cat !== "all") base = base.filter((s) => s.source === state.cat);
   if (!q) { state.view = base.slice().sort((a, b) => a.name.localeCompare(b.name)); return; }
   const scored = [];
@@ -143,9 +150,14 @@ function renderChips() {
   el.chips.hidden = false;
   const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, conflict: 0, dup: 0 };
   for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.conflict) counts.conflict++; if (s.dup) counts.dup++; }
-  const defs = [["all", "全部"], ["user", "用户级"], ["project", "项目级"], ["plugin", "插件"]];
+  const linked = state.linkedSources.size;
+  const defs = [["all", "全部"], ["user", "用户级"], ["project", "项目级"]];
+  if (counts.plugin) defs.push(["plugin", "插件"]);
   if (counts.conflict) defs.push(["conflict", "冲突"]);
   if (counts.dup) defs.push(["dup", "重复"]);
+  if (linked) defs.push(["linked", "有来源"]);
+  defs.push(["unlinked", "无来源"]);
+  counts.linked = linked; counts.unlinked = state.all.length - linked;
   el.chips.innerHTML = defs.map(([k, label]) =>
     `<button class="chip ${state.cat === k ? "active" : ""}" data-cat="${k}">${label}<span class="ct">${counts[k] || 0}</span></button>`).join("");
 }
@@ -205,7 +217,7 @@ function rowHTML(s, idx, animate) {
 function renderResults() {
   const n = state.view.length, q = state.query.trim();
   el.resultsMeta.innerHTML = n
-    ? `<b>${n}</b> 个结果${q ? ` · 关键词「${esc(q)}」精确优先` : ""}${state.cat !== "all" ? ` · ${CAT_LABEL[state.cat] || (state.cat === "dup" ? "重复" : "冲突")}` : ""}`
+    ? `<b>${n}</b> 个结果${q ? ` · 关键词「${esc(q)}」精确优先` : ""}${state.cat !== "all" ? ` · ${CHIP_LABEL[state.cat] || state.cat}` : ""}`
     : "";
   el.sizer.style.height = n * ROW_H + "px";
   el.viewport.scrollTop = 0;
@@ -345,6 +357,7 @@ async function openDetail(id, fromSearch) {
   ensureEditor();
   await loadFiles(id);
   await openFile(s.file_path, "view");
+  loadSource(id);
   const recents = LS.recents().filter((r) => r.id !== id);
   recents.unshift({ id, name: s.name, description: s.description });
   LS.setRecents(recents);
@@ -378,6 +391,58 @@ async function doReveal() {
   else toast("打开失败", "err");
 }
 function toggleFull() { state.full = !state.full; el.sheet.classList.toggle("full", state.full); if (state.editor) setTimeout(() => state.editor.refresh(), 50); }
+
+/* ---------- source link ---------- */
+const KIND_LABEL = { github_repo: "GitHub 仓库", github_file: "GitHub 文件", local_path: "本地目录", manual: "手动", unknown: "未知" };
+const SYNC_LABEL = { none: "不同步", check_only: "仅检查更新", manual_update: "手动更新" };
+function srcLink(url) {
+  if (/^https?:\/\//i.test(url || "")) return `<a class="src-url" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`;
+  return `<span class="src-url" style="color:var(--text-dim)">${esc(url || "")}</span>`;
+}
+async function loadSource(id) {
+  state.sourceEditing = false;
+  try { state.source = await API.getSource(id); } catch { state.source = null; }
+  renderSource();
+}
+function sourceForm(s) {
+  s = s || {};
+  return `<div class="src-form">
+    <input class="src-in" id="srcUrl" placeholder="来源链接 https://github.com/owner/repo" value="${esc(s.source_url || "")}" />
+    <div class="src-row">
+      <select class="src-in" id="srcKind">${["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>
+      <input class="src-in" id="srcRef" placeholder="分支/tag/commit" value="${esc(s.source_ref || "")}" />
+      <select class="src-in" id="srcSync">${["none", "check_only", "manual_update"].map((k) => `<option value="${k}" ${(s.sync_policy || "none") === k ? "selected" : ""}>${SYNC_LABEL[k]}</option>`).join("")}</select>
+    </div>
+    <input class="src-in" id="srcNote" placeholder="备注（可选）" value="${esc(s.source_note || "")}" />
+    <div class="src-row">
+      <button class="src-btn primary" data-act="src-save">保存</button>
+      <button class="src-btn" data-act="src-cancel">取消</button>
+      ${s.source_url && !s.inferred ? `<button class="src-btn danger" data-act="src-clear">清除来源</button>` : ""}
+    </div></div>`;
+}
+function renderSource() {
+  const s = state.source;
+  if (state.sourceEditing) { el.sourceBox.innerHTML = sourceForm(s); return; }
+  if (!s || (!s.source_url && !s.inferred)) {
+    el.sourceBox.innerHTML = `<span class="src-mut">未设置来源</span><button class="src-btn" data-act="src-edit">+ 添加来源</button>`;
+    return;
+  }
+  if (s.inferred && s.source_url) {
+    el.sourceBox.innerHTML = `<span class="src-tag infer">检测到 Git 来源</span>${srcLink(s.source_url)}<button class="src-btn primary" data-act="src-adopt">采用</button><button class="src-btn" data-act="src-edit">编辑</button>`;
+    return;
+  }
+  el.sourceBox.innerHTML = `<span class="src-tag">${esc(KIND_LABEL[s.source_kind] || s.source_kind)}</span>${srcLink(s.source_url)}${s.source_ref ? `<span class="src-mut">@${esc(s.source_ref)}</span>` : ""}<span class="src-mut">· ${esc(SYNC_LABEL[s.sync_policy] || s.sync_policy)}</span><button class="src-btn" data-act="src-copy">复制</button><button class="src-btn" data-act="src-edit">编辑</button>${s.source_note ? `<div class="src-note">${esc(s.source_note)}</div>` : ""}`;
+}
+async function saveSource(id, payload) {
+  try {
+    const r = await API.putSource(id, payload);
+    if (!r.ok) { toast("保存失败", "err"); return; }
+    state.sourceEditing = false;
+    await loadSource(id);
+    try { const sd = await API.sources(); state.linkedSources = new Set(sd.linked || []); renderChips(); } catch { /* ignore */ }
+    toast(payload.source_url ? "已保存来源" : "已清除来源");
+  } catch { toast("保存失败", "err"); }
+}
 function doFind() { setMode("edit"); setTimeout(() => state.editor.execCommand("find"), 60); }
 
 /* ---------- AI optimize + diff ---------- */
@@ -640,6 +705,16 @@ el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
 el.sheetFull.addEventListener("click", toggleFull);
+el.sourceBox.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-act]"); if (!b || !state.current) return;
+  const act = b.dataset.act, id = state.current.id;
+  if (act === "src-edit") { state.sourceEditing = true; renderSource(); }
+  else if (act === "src-cancel") { state.sourceEditing = false; renderSource(); }
+  else if (act === "src-copy") { if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url); toast("已复制来源链接"); }
+  else if (act === "src-adopt") { await saveSource(id, { source_url: state.source.source_url, source_kind: state.source.source_kind, source_ref: state.source.source_ref || "", source_note: "", sync_policy: "check_only" }); }
+  else if (act === "src-save") { await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), sync_policy: $("#srcSync").value, source_note: $("#srcNote").value.trim() }); }
+  else if (act === "src-clear") { if (confirm("清除该 skill 的来源信息？")) await saveSource(id, { source_url: "" }); }
+});
 el.fileTree.addEventListener("click", (e) => {
   const tog = e.target.closest(".ft-row[data-toggle]");
   if (tog) { const rel = tog.dataset.toggle; if (state.collapsed.has(rel)) state.collapsed.delete(rel); else state.collapsed.add(rel); renderTree(); return; }

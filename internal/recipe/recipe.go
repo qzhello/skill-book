@@ -11,6 +11,9 @@ import (
 // BlankID 是内置空白脚手架的固定 ID。
 const BlankID = "blank"
 
+// AuthoringID 是内置「标准 Skill 写法」方法论配方的固定 ID。
+const AuthoringID = "authoring"
+
 // Recipe 是一个可选的创作配方。Kind 为 "builtin" 或 "skill"。
 type Recipe struct {
 	ID   string `json:"id"`
@@ -60,7 +63,10 @@ func List(st *store.Store) ([]Recipe, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := []Recipe{{ID: BlankID, Name: "空白脚手架", Kind: "builtin"}}
+	out := []Recipe{
+		{ID: AuthoringID, Name: "标准 Skill 写法", Kind: "builtin"},
+		{ID: BlankID, Name: "空白脚手架", Kind: "builtin"},
+	}
 	seen := map[string]bool{}
 	for _, sk := range skills {
 		if !isCreatorSkill(sk.Name) || seen[sk.Name] {
@@ -76,6 +82,9 @@ func List(st *store.Store) ([]Recipe, error) {
 func Body(st *store.Store, id string) (string, error) {
 	if id == BlankID {
 		return blankTemplate, nil
+	}
+	if id == AuthoringID {
+		return authoringMethodology, nil
 	}
 	sk, err := st.Get(id)
 	if err != nil {

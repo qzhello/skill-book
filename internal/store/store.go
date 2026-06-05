@@ -23,6 +23,17 @@ CREATE TABLE IF NOT EXISTS skills (
 CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts USING fts5(
   name, description, body
 );
+CREATE TABLE IF NOT EXISTS skill_sources (
+  skill_id       TEXT PRIMARY KEY,
+  source_kind    TEXT NOT NULL DEFAULT 'unknown',
+  source_url     TEXT NOT NULL DEFAULT '',
+  source_ref     TEXT NOT NULL DEFAULT '',
+  source_subpath TEXT NOT NULL DEFAULT '',
+  source_rev     TEXT NOT NULL DEFAULT '',
+  source_note    TEXT NOT NULL DEFAULT '',
+  sync_policy    TEXT NOT NULL DEFAULT 'none',
+  updated_at     INTEGER NOT NULL DEFAULT 0
+);
 `
 
 // Open 打开（或新建）数据库并建表。dsn 用 ":memory:" 可做测试。

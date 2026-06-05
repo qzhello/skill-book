@@ -52,6 +52,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/file", s.handlePutFile)
 	mux.HandleFunc("POST /api/skills/trash", s.handleTrash)
 	mux.HandleFunc("GET /api/groups", s.handleGroups)
+	// 来源链接
+	mux.HandleFunc("GET /api/skills/{id}/source", s.handleGetSource)
+	mux.HandleFunc("PUT /api/skills/{id}/source", s.handlePutSource)
+	mux.HandleFunc("GET /api/sources", s.handleListSources)
 
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))

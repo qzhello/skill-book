@@ -50,6 +50,9 @@ func TestListSelectsCreatorSkillsPlusBlank(t *testing.T) {
 	if names["空白脚手架"] != "builtin" {
 		t.Fatalf("missing blank builtin: %+v", got)
 	}
+	if names["标准 Skill 写法"] != "builtin" {
+		t.Fatalf("missing authoring builtin: %+v", got)
+	}
 	if names["writing-skills"] != "skill" {
 		t.Fatalf("missing writing-skills: %+v", got)
 	}
@@ -62,9 +65,28 @@ func TestListSelectsCreatorSkillsPlusBlank(t *testing.T) {
 	if _, ok := names["golang-patterns"]; ok {
 		t.Fatalf("non-creator skill should be excluded: %+v", got)
 	}
-	// blank 必须第一个
-	if got[0].ID != BlankID {
-		t.Fatalf("blank should be first, got %+v", got[0])
+	// authoring 必须第一个，blank 第二个（内置排在扫描到的配方之前）
+	if got[0].ID != AuthoringID {
+		t.Fatalf("authoring should be first, got %+v", got[0])
+	}
+	if got[1].ID != BlankID {
+		t.Fatalf("blank should be second, got %+v", got[1])
+	}
+}
+
+func TestBodyAuthoringReturnsMethodology(t *testing.T) {
+	st := newStore(t)
+	body, err := Body(st, AuthoringID)
+	if err != nil {
+		t.Fatalf("Body: %v", err)
+	}
+	if body == "" {
+		t.Fatal("authoring body empty")
+	}
+	for _, want := range []string{"frontmatter", "何时使用", "description"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("authoring body missing %q", want)
+		}
 	}
 }
 
