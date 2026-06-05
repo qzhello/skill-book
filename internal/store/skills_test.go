@@ -70,6 +70,41 @@ func TestGetByID(t *testing.T) {
 	}
 }
 
+func TestDeleteByDir(t *testing.T) {
+	st := newTestStore(t)
+	a := model.Skill{Source: model.SourceUser, Dir: "/d/alpha", FilePath: "/d/alpha/SKILL.md",
+		Name: "alpha", Description: "A", Body: "find me alpha", MTime: 1}
+	b := model.Skill{Source: model.SourceUser, Dir: "/d/beta", FilePath: "/d/beta/SKILL.md",
+		Name: "beta", Description: "B", Body: "keep me beta", MTime: 1}
+	_ = st.Upsert(a)
+	_ = st.Upsert(b)
+
+	if err := st.DeleteByDir("/d/alpha"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	list, err := st.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].Name != "beta" {
+		t.Fatalf("want only beta left, got %+v", list)
+	}
+	// FTS 也应同步：搜 alpha 不应命中已删行。
+	hits, err := st.Search("alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, h := range hits {
+		if h.Dir == "/d/alpha" {
+			t.Fatalf("deleted row still in FTS: %+v", h)
+		}
+	}
+	// 删除不存在的 dir 不应报错。
+	if err := st.DeleteByDir("/d/nope"); err != nil {
+		t.Fatalf("delete missing: %v", err)
+	}
+}
+
 func TestNameGroups_ConflictVsDuplicate(t *testing.T) {
 	st := newTestStore(t)
 	// foo: 同名但内容不同 → 真冲突

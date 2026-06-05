@@ -10,7 +10,7 @@ import (
 	"skillbook/internal/recipe"
 )
 
-const aiMaxBody = 1 << 20 // 1 MiB
+const aiMaxBody = 8 << 20 // 8 MiB（覆盖文件内容写入；readJSONBody 统一在此限制）
 
 // genericWritingGuidance 在库中找不到 writing 风格配方时作为 optimize 的兜底 system。
 const genericWritingGuidance = `你是一名资深技术写作者，擅长打磨 Claude Code 的 SKILL.md。` +
