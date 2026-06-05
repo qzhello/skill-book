@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"skillbook/internal/backup"
 	"skillbook/internal/editor"
 	"skillbook/internal/model"
 	"skillbook/internal/scanner"
@@ -32,6 +33,9 @@ type Server struct {
 	// 非 nil 时直接使用它（并跳过 Configured 门槛检查）；
 	// nil 时走真实 ai.NewClient(effectiveAI()).Complete。
 	aiCompleteFn func(ctx context.Context, system, user string) (string, error)
+	// backupSvc 非 nil 时用于备份/恢复（测试注入假 git Runner）；
+	// nil 时按 HOME 构造默认服务。
+	backupSvc *backup.Service
 }
 
 func New(st *store.Store, roots []scanner.Root) *Server {
@@ -73,6 +77,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/import", s.handleImport)
 	mux.HandleFunc("POST /api/skills/{id}/source/check", s.handleSourceCheck)
 	mux.HandleFunc("POST /api/skills/{id}/source/apply", s.handleSourceApply)
+	// GitHub 备份 / 恢复
+	mux.HandleFunc("GET /api/backup/config", s.handleGetBackupConfig)
+	mux.HandleFunc("PUT /api/backup/config", s.handlePutBackupConfig)
+	mux.HandleFunc("GET /api/backup/status", s.handleBackupStatus)
+	mux.HandleFunc("POST /api/backup/push", s.handleBackupPush)
+	mux.HandleFunc("POST /api/backup/restore", s.handleBackupRestore)
 
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))

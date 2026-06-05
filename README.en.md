@@ -18,6 +18,7 @@ SkillBook is a **fully local**, single-process web app (one Go binary with the f
 - **Directory-level editing** — a Skill is a directory: file tree + CodeMirror, browse/edit modes; saving auto-commits when the file already lives in a git work tree.
 - **AI optimization as a Skill** — ships an editable review ruleset (`~/.skillbook/optimizer.md`) you can tune in-app; the model audits per dimension and returns structured suggestions you accept one by one (exact string replacement). Works with DeepSeek / OpenAI / Claude / local Ollama, etc.
 - **Source governance** — annotate each Skill with a source link (a chip in the title); GitHub sources support "check for updates"; import a Skill directory straight from github.com.
+- **GitHub backup / restore** — one click to back up user-level `~/.claude/skills` and `~/.codex/skills` to your own private GitHub repo, and restore from it (the overwritten local dirs go to Trash first). The token is passed to git via an environment variable (never in the URL / config / logs) and stored only in `~/.skillbook/backup.json` (0600).
 - **Security first** — deletes go to the system Trash (never `rm`), symlink path-traversal defense, outbound requests restricted to github.com, API keys live only in `~/.skillbook/config.json` (0600, never echoed, never uploaded).
 
 ## 🖥 Requirements
@@ -93,7 +94,6 @@ Environment-variable fallback is supported (e.g. `ANTHROPIC_API_KEY`). **Keys ar
 
 ## 🗺 Roadmap
 
-- Back up user-level Skills to your own GitHub repo (push / restore)
 - Automatic upstream updates, semantic retrieval
 
 ## 📄 License

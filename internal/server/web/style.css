@@ -354,6 +354,8 @@ body{
 .modal-note code{font-family:var(--mono);font-size:11.5px;color:var(--text-dim)}
 .modal-foot{display:flex;align-items:center;gap:10px;padding:12px 20px 18px;border-top:1px solid var(--line-soft)}
 .cfg-status{font-size:12.5px;color:var(--muted)}
+.backup-status{margin:0 0 14px;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);
+  font-size:12.5px;color:var(--text-dim);font-variant-numeric:tabular-nums}
 .cfg-status.ok{color:var(--accent)}.cfg-status.err{color:var(--danger)}
 .cfg-status.busy{color:var(--blue)}
 .diff-body{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);overflow:hidden}

@@ -10,7 +10,10 @@ const el = {
   scrim: $("#scrim"), sheet: $("#sheet"), sheetName: $("#sheetName"),
   sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
   sourceChip: $("#sourceChip"), sourceModal: $("#sourceModal"), sourceModalBody: $("#sourceModalBody"),
-  editOptimizer: $("#editOptimizer"),
+  editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
+  backupModal: $("#backupModal"), backupStatus: $("#backupStatus"), bkRepo: $("#bkRepo"), bkBranch: $("#bkBranch"),
+  bkToken: $("#bkToken"), bkTokenHint: $("#bkTokenHint"), bkStatus: $("#bkStatus"),
+  bkSave: $("#bkSave"), bkPush: $("#bkPush"), bkRestore: $("#bkRestore"),
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
@@ -107,6 +110,11 @@ const API = {
   applySource: (id, content) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
   getOptimizer: () => fetch("/api/optimizer").then(J),
   putOptimizer: (content) => fetch("/api/optimizer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
+  backupConfig: () => fetch("/api/backup/config").then(J),
+  backupStatus: () => fetch("/api/backup/status").then(J),
+  putBackupConfig: (c) => fetch("/api/backup/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }),
+  backupPush: () => fetch("/api/backup/push", { method: "POST" }),
+  backupRestore: () => fetch("/api/backup/restore", { method: "POST" }),
 };
 
 /* ---------- data load ---------- */
@@ -561,6 +569,57 @@ async function saveOptimizer() {
   try { const r = await API.putOptimizer(optimizerEditor.getValue()); if (r.ok) { toast("已保存优化规则"); closeModal(); } else toast("保存失败", "err"); }
   catch { toast("保存失败", "err"); }
 }
+
+/* ---------- GitHub 备份与恢复 ---------- */
+function fmtTime(unix) {
+  if (!unix) return "尚未备份";
+  try { return new Date(unix * 1000).toLocaleString(); } catch { return "—"; }
+}
+async function openBackup() {
+  openModal(el.backupModal);
+  el.bkStatus.textContent = ""; el.bkToken.value = "";
+  try {
+    const [cfg, st] = await Promise.all([API.backupConfig(), API.backupStatus()]);
+    el.bkRepo.value = cfg.repoURL || "";
+    el.bkBranch.value = cfg.branch || "main";
+    el.bkTokenHint.textContent = cfg.hasToken ? "已保存（留空不改）" : "必填";
+    el.backupStatus.textContent = st.configured
+      ? `上次备份：${fmtTime(st.lastBackup)} · 仓库 ${cfg.repoURL || "—"}`
+      : "未配置——填好仓库与 token 后即可一键备份";
+  } catch { el.backupStatus.textContent = "载入备份配置失败"; }
+}
+async function saveBackupConfig() {
+  const repoURL = el.bkRepo.value.trim();
+  if (!repoURL) { toast("请填写备份仓库地址", "err"); return; }
+  el.bkStatus.textContent = "保存中…";
+  try {
+    const r = await API.putBackupConfig({ repoURL, branch: el.bkBranch.value.trim(), token: el.bkToken.value });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { el.bkStatus.textContent = ""; el.bkToken.value = ""; toast("已保存备份配置"); await openBackup(); }
+    else { el.bkStatus.textContent = ""; toast(d.error || "保存失败", "err"); }
+  } catch { el.bkStatus.textContent = ""; toast("保存失败", "err"); }
+}
+async function doBackupPush() {
+  el.bkPush.classList.add("loading"); el.bkPush.disabled = true; el.bkStatus.textContent = "备份中…";
+  try {
+    const r = await API.backupPush();
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { toast(d.changed ? "备份完成 ✓" : (d.message || "没有变更")); await openBackup(); }
+    else { toast(d.error || "备份失败", "err"); }
+  } catch { toast("备份失败", "err"); }
+  finally { el.bkPush.classList.remove("loading"); el.bkPush.disabled = false; el.bkStatus.textContent = ""; }
+}
+async function doBackupRestore() {
+  if (!confirm("将用备份仓库的内容覆盖本地 ~/.claude/skills 与 ~/.codex/skills；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？")) return;
+  el.bkRestore.classList.add("loading"); el.bkRestore.disabled = true; el.bkStatus.textContent = "恢复中…";
+  try {
+    const r = await API.backupRestore();
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { toast(d.message || "已恢复"); closeModal(); doScan(); }
+    else { toast(d.error || "恢复失败", "err"); }
+  } catch { toast("恢复失败", "err"); }
+  finally { el.bkRestore.classList.remove("loading"); el.bkRestore.disabled = false; el.bkStatus.textContent = ""; }
+}
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"), b = (newT || "").split("\n");
   const m = a.length, n = b.length;
@@ -890,6 +949,10 @@ el.optNone.addEventListener("click", () => { optSuggestions.forEach((s) => (s.ac
 el.optApply.addEventListener("click", applyOptimize);
 el.editOptimizer.addEventListener("click", openOptimizer);
 el.optimizerSave.addEventListener("click", saveOptimizer);
+el.openBackup.addEventListener("click", openBackup);
+el.bkSave.addEventListener("click", saveBackupConfig);
+el.bkPush.addEventListener("click", doBackupPush);
+el.bkRestore.addEventListener("click", doBackupRestore);
 
 el.settings.addEventListener("click", async () => { openModal(el.settingsModal); await fillSettings(); });
 el.cfgSave.addEventListener("click", saveSettings);
