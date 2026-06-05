@@ -166,6 +166,25 @@ body{
 .sheet-title h3{margin:0 0 6px;font-size:18px;letter-spacing:-.01em;word-break:break-word}
 .sheet-badges{display:inline-flex;gap:6px;flex-wrap:wrap}
 .sheet-path{margin:6px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all}
+.source-box{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 0;padding:9px 11px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);font-size:12.5px}
+.source-box:empty{display:none}
+.src-mut{color:var(--muted)}
+.src-tag{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--text-dim);text-transform:uppercase}
+.src-tag.infer{color:var(--blue);border-color:rgba(91,155,255,.35);background:rgba(91,155,255,.1)}
+.src-url{color:var(--accent);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:340px}
+.src-url:hover{text-decoration:underline}
+.src-btn{cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--line);color:var(--text-dim);transition:all var(--dur) var(--ease)}
+.src-btn:hover{border-color:var(--accent);color:#fff}
+.src-btn.primary{background:var(--accent);color:#04130a;border-color:transparent}
+.src-btn.primary:hover{background:#2bd96a}
+.src-btn.danger{color:#ff8b8b;border-color:rgba(239,68,68,.35)}
+.src-btn.danger:hover{background:rgba(239,68,68,.14);border-color:var(--danger);color:#fff}
+.src-note{flex-basis:100%;color:var(--muted);font-size:12px;margin-top:2px}
+.src-form{display:flex;flex-direction:column;gap:8px;width:100%}
+.src-row{display:flex;gap:8px;flex-wrap:wrap}
+.src-in{flex:1;min-width:120px;font-family:inherit;font-size:12.5px;color:var(--text);background:var(--bg-elev);border:1px solid var(--line);border-radius:6px;padding:7px 10px;outline:none}
+.src-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
 .sheet-toolbar{display:flex;align-items:center;gap:8px;margin:14px 0 12px;flex-wrap:wrap}
 .toolbar-spacer{flex:1}
 .dirty-dot{font-size:14px;color:var(--warn)}
