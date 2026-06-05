@@ -4,9 +4,12 @@
 
 ## 一键启动
 ```bash
-./start.sh           # 默认 127.0.0.1:7777，自动开浏览器
-SKILLBOOK_ADDR=127.0.0.1:8080 ./start.sh
+./start.sh           # 后台启动（不阻塞），默认 127.0.0.1:7777，自动开浏览器
+./stop.sh            # 停止
+./restart.sh         # 重启
+SKILLBOOK_ADDR=127.0.0.1:8080 ./start.sh   # 自定义地址
 ```
+start.sh 后台运行，pid 记录在 `.skillbook.pid`，日志写入 `skillbook.log`；重复运行会复用已在跑的实例。
 
 ## 来源
 - `~/.claude/skills`（用户级）

@@ -2,3 +2,5 @@
 /skillbook.db
 *.db-wal
 *.db-shm
+/.skillbook.pid
+/skillbook.log
