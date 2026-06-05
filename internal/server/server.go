@@ -46,6 +46,12 @@ func (s *Server) Handler() http.Handler {
 	// 文件操作
 	mux.HandleFunc("POST /api/skills/new", s.handleNewSkill)
 	mux.HandleFunc("POST /api/reveal", s.handleReveal)
+	// 目录结构 / 多文件
+	mux.HandleFunc("GET /api/skills/{id}/files", s.handleSkillFiles)
+	mux.HandleFunc("GET /api/file", s.handleGetFile)
+	mux.HandleFunc("PUT /api/file", s.handlePutFile)
+	mux.HandleFunc("POST /api/skills/trash", s.handleTrash)
+	mux.HandleFunc("GET /api/groups", s.handleGroups)
 
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))
