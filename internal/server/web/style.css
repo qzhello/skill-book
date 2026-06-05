@@ -202,13 +202,16 @@ body{
 .sheet-body{display:flex;gap:0}
 .file-tree{width:200px;flex-shrink:0;overflow:auto;border-right:1px solid var(--line);padding:8px;background:var(--surface)}
 .sheet-main{flex:1;min-width:0;display:flex;position:relative}
-.ft-row{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;font-size:12.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+.ft-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;font-size:12.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap;overflow:hidden;
   transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+.ft-row span{overflow:hidden;text-overflow:ellipsis}
 .ft-row:hover{background:var(--surface-2);color:var(--text)}
 .ft-row.active{background:var(--accent-weak);color:#bff5d2}
-.ft-row.dir{color:var(--muted);cursor:default;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-.ft-row.dir:hover{background:transparent;color:var(--muted)}
-.ft-row svg{flex-shrink:0;opacity:.8}
+.ft-row.dir{color:var(--text-dim);font-weight:600}
+.ft-row .ft-ico{flex-shrink:0;opacity:.75}
+.ft-row.dir .ft-ico{color:var(--blue);opacity:.9}
+.ft-chevwrap{display:inline-flex;width:12px;flex-shrink:0;color:var(--muted);transition:transform var(--dur) var(--ease)}
+.ft-chevwrap.open{transform:rotate(90deg)}
 .binary-note{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px;background:var(--bg-elev)}
 /* 让浏览模式可正常拖选复制文本 */
 .md-preview,.md-preview *{user-select:text;-webkit-user-select:text}
