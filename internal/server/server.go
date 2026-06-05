@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"io"
@@ -22,10 +23,15 @@ var webFS embed.FS
 type Server struct {
 	st    *store.Store
 	roots []scanner.Root
+	// cloneFn 执行 git clone，将 cloneURL 克隆到 destDir。
+	// 默认 gitClone（真实 git）；测试可注入本地仓库克隆以避免联网。
+	cloneFn func(ctx context.Context, cloneURL, ref, destDir string) error
+	// rawBaseOverride 非空时，source/check 用它替换 raw 抓取地址（仅测试用）。
+	rawBaseOverride string
 }
 
 func New(st *store.Store, roots []scanner.Root) *Server {
-	return &Server{st: st, roots: roots}
+	return &Server{st: st, roots: roots, cloneFn: gitClone}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -56,6 +62,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/skills/{id}/source", s.handleGetSource)
 	mux.HandleFunc("PUT /api/skills/{id}/source", s.handlePutSource)
 	mux.HandleFunc("GET /api/sources", s.handleListSources)
+	// GitHub 导入 + 更新检查/应用
+	mux.HandleFunc("POST /api/import", s.handleImport)
+	mux.HandleFunc("POST /api/skills/{id}/source/check", s.handleSourceCheck)
+	mux.HandleFunc("POST /api/skills/{id}/source/apply", s.handleSourceApply)
 
 	sub, _ := fs.Sub(webFS, "web")
 	mux.Handle("/", http.FileServer(http.FS(sub)))
