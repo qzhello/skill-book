@@ -19,7 +19,7 @@ const el = {
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   fontBtn: $("#fontBtn"), fontPop: $("#fontPop"), fsVal: $("#fsVal"),
-  save: $("#save"), dirty: $("#dirty"),
+  save: $("#save"), dirty: $("#dirty"), deleteSkill: $("#deleteSkill"),
   groupsModal: $("#groupsModal"), groupsTitle: $("#groupsTitle"), groupsSub: $("#groupsSub"),
   groupsBody: $("#groupsBody"), groupsSel: $("#groupsSel"),
   grpCompare: $("#grpCompare"), grpLocate: $("#grpLocate"), grpTrash: $("#grpTrash"),
@@ -47,12 +47,16 @@ function platformBadge(s) {
 }
 function relTime(unix) {
   if (!unix) return "";
-  const d = Date.now() / 1000 - unix;
-  if (d < 60) return "刚刚";
-  if (d < 3600) return Math.floor(d / 60) + " 分钟前";
-  if (d < 86400) return Math.floor(d / 3600) + " 小时前";
-  if (d < 2592000) return Math.floor(d / 86400) + " 天前";
-  try { return new Date(unix * 1000).toLocaleDateString(); } catch { return ""; }
+  const now = new Date();
+  const then = new Date(unix * 1000);
+  // 按自然日计算天数差（避免“23 小时前其实是昨天”的歧义）
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(then)) / 86400000);
+  const p2 = (n) => String(n).padStart(2, "0");
+  if (dayDiff <= 0) return `${p2(then.getHours())}:${p2(then.getMinutes())}`; // 今天：HH:mm
+  if (dayDiff < 7) return `${dayDiff}天前`;                                    // 1–6 天前
+  if (dayDiff === 7) return "一周前";                                          // 恰好一周
+  return `${then.getFullYear()}-${p2(then.getMonth() + 1)}-${p2(then.getDate())}`; // 大于一周：yyyy-MM-dd
 }
 const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展示
 
@@ -274,15 +278,16 @@ function treeItem(s, flat) {
     return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
       <span class="ti-name">${highlight(s.name, q)}</span>${flag}${t}</button>`;
   }
-  // 扁平搜索项：带平台点 + 层级；仅描述命中时附一行描述片段，标注“描述命中”
+  // 扁平搜索项：带平台点 + 层级；名字未命中、仅描述命中时附一行高亮描述片段
   const dot = `<span class="plat-dot plat-${s.platform || "claude"}" title="${PLATFORM_LABEL[s.platform] || ""}"></span>`;
   const lvl = `<span class="ti-lvl">${CAT_LABEL[s.source] || s.source}</span>`;
   const descOnly = q && !s.nameLower.includes(q) && s.descLower.includes(q);
   const sub = descOnly
-    ? `<span class="ti-sub"><span class="ti-sub-tag">描述命中</span>${descSnippet(s.description, q)}</span>`
+    ? `<span class="ti-sub">${descSnippet(s.description, q)}</span>`
     : "";
+  // 搜索结果不展示时间（更新时间在搜索场景下无意义）
   return `<button class="tree-item flat${active}" data-id="${s.id}" title="${esc(s.name)}">
-    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${flag}${lvl}${t}</span>${sub}</button>`;
+    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${flag}${lvl}</span>${sub}</button>`;
 }
 // 截取描述中命中关键词附近的一小段并高亮。
 function descSnippet(desc, q) {
@@ -377,9 +382,44 @@ function splitFrontmatter(md) {
   return { fm: m[1], body: (md || "").slice(m[0].length) };
 }
 const isMd = (p) => /\.md$/i.test(p || "");
+// 语言模式按需加载：按文件名匹配 CodeMirror 模式，未知类型回退纯文本。
+if (window.CodeMirror) CodeMirror.modeURL = "https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/%N/%N.min.js";
+function applyMode(editor, path) {
+  if (isMd(path)) { editor.setOption("mode", "markdown"); return; }
+  const info = (window.CodeMirror && CodeMirror.findModeByFileName) ? CodeMirror.findModeByFileName(path) : null;
+  if (!info) { editor.setOption("mode", "text/plain"); return; }
+  editor.setOption("mode", info.mime);
+  if (info.mode && info.mode !== "null" && CodeMirror.autoLoadMode) CodeMirror.autoLoadMode(editor, info.mode);
+}
+// 代码高亮：对预览区内所有 <pre><code> 应用 highlight.js。
+function highlightPreview() {
+  if (!window.hljs) return;
+  el.preview.querySelectorAll("pre code").forEach((b) => { try { hljs.highlightElement(b); } catch { /* 未知语言忽略 */ } });
+}
+// 文件扩展名 → highlight.js 语言名（找不到则交给自动检测）。
+function hljsLangFromPath(p) {
+  const ext = (p || "").split(".").pop().toLowerCase();
+  const map = {
+    py: "python", js: "javascript", mjs: "javascript", cjs: "javascript", jsx: "javascript",
+    ts: "typescript", tsx: "typescript", go: "go", rs: "rust", java: "java", kt: "kotlin",
+    c: "c", h: "c", cpp: "cpp", cc: "cpp", hpp: "cpp", cs: "csharp", swift: "swift",
+    rb: "ruby", php: "php", sh: "bash", bash: "bash", zsh: "bash", ps1: "powershell",
+    json: "json", yaml: "yaml", yml: "yaml", toml: "ini", ini: "ini", xml: "xml",
+    html: "xml", htm: "xml", css: "css", scss: "scss", less: "less", sql: "sql",
+    dockerfile: "dockerfile", makefile: "makefile",
+  };
+  return map[ext] || "";
+}
 function renderPreview() {
   const md = state.editor ? state.editor.getValue() : "";
-  if (!isMd(state.filePath)) { el.preview.innerHTML = `<pre>${esc(md)}</pre>`; return; }
+  if (!isMd(state.filePath)) {
+    // 代码/纯文本文件：按语言渲染为高亮代码块（替代原始 <pre> 纯文本）。
+    const lang = hljsLangFromPath(state.filePath);
+    const cls = lang ? ` class="language-${lang}"` : "";
+    el.preview.innerHTML = `<pre class="code-file"><code${cls}>${esc(md)}</code></pre>`;
+    highlightPreview();
+    return;
+  }
   const { fm, body } = splitFrontmatter(md);
   let html = "";
   if (fm) {
@@ -389,6 +429,7 @@ function renderPreview() {
   }
   html += renderBodyWithAnchors(md, body || "");
   el.preview.innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
+  highlightPreview();
 }
 // 逐顶层 markdown 块包一层 data-line（源码起始行，0-based），供双屏按行对齐滚动。
 function renderBodyWithAnchors(md, body) {
@@ -518,7 +559,7 @@ async function openFile(abs, mode) {
   ensureEditor();
   state.baseline = f.content || "";
   state.editor.setValue(f.content || "");
-  state.editor.setOption("mode", isMd(abs) ? "markdown" : "text/plain");
+  applyMode(state.editor, abs);
   el.dirty.hidden = true;
   setMode(mode || state.mode || "view");
 }
@@ -547,6 +588,27 @@ function closeSheet() {
   el.detailEmpty.hidden = false;
   state.current = null;
   el.tree.querySelectorAll(".tree-item.active").forEach((n) => n.classList.remove("active"));
+}
+async function doDelete() {
+  const s = state.current;
+  if (!s) return;
+  if (!s.dir) { toast("无法定位 skill 目录", "err"); return; }
+  if (!confirm(`将「${s.name}」移到废纸篓（可在访达恢复）。确定？`)) return;
+  el.deleteSkill.disabled = true;
+  try {
+    const res = await API.trash([s.dir]);
+    if (res.status === 501) { toast("仅 macOS 支持移到废纸篓", "err"); return; }
+    const d = await res.json();
+    if ((d.trashed || []).length) {
+      toast(`已移到废纸篓「${s.name}」`);
+      closeSheet();
+      await loadAll();
+      render();
+    } else {
+      toast("删除失败", "err");
+    }
+  } catch { toast("操作失败", "err"); }
+  finally { el.deleteSkill.disabled = false; }
 }
 async function doSave() {
   if (!state.current || state.fileBinary || !state.filePath) return;
@@ -746,7 +808,11 @@ async function saveOptimizer() {
 /* ---------- GitHub 备份与恢复 ---------- */
 function fmtTime(unix) {
   if (!unix) return "尚未备份";
-  try { return new Date(unix * 1000).toLocaleString(); } catch { return "—"; }
+  try {
+    const d = new Date(unix * 1000);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  } catch { return "—"; }
 }
 async function openBackup() {
   openModal(el.backupModal);
@@ -851,7 +917,6 @@ async function doApplyUpdate() {
 
 /* ---------- dup/conflict groups ---------- */
 function fmtSize(n) { if (n < 1024) return n + " B"; if (n < 1048576) return (n / 1024).toFixed(1) + " KB"; return (n / 1048576).toFixed(1) + " MB"; }
-function fmtTime(u) { if (!u) return ""; try { return new Date(u * 1000).toLocaleDateString(); } catch { return ""; } }
 async function openGroups(kind) {
   state.groupKind = kind; state.groupSel = new Set();
   el.groupsTitle.textContent = kind === "conflict" ? "冲突管理" : "重复管理";
@@ -984,6 +1049,13 @@ async function openNew() {
   openModal(el.newModal);
   setTimeout(() => el.newName.focus(), 60);
 }
+// 去除 AI 输出整体被 ```markdown ... ``` / ``` ... ``` 包裹的外层围栏，
+// 否则整篇 SKILL.md 会被当成一个代码块，预览显示为“原始文本”。
+function stripCodeFence(s) {
+  const t = (s || "").trim();
+  const m = t.match(/^```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```$/);
+  return m ? m[1].trim() + "\n" : s;
+}
 function scaffold(name, brief) {
   return `---\nname: ${name}\ndescription: ${brief || "TODO: 一句话描述这个 skill 何时使用"}\n---\n\n# ${name}\n\n${brief || "TODO: 写下这个 skill 的内容。"}\n`;
 }
@@ -997,7 +1069,7 @@ async function createSkill() {
     if (el.newCreate.dataset.ai === "1" && brief) {
       el.newStatus.textContent = "AI 生成中…";
       const r = await API.create(name, brief, el.newRecipe.value);
-      if (r.ok) content = (await r.json()).result || scaffold(name, brief);
+      if (r.ok) content = stripCodeFence((await r.json()).result) || scaffold(name, brief);
       else content = scaffold(name, brief);
     } else content = scaffold(name, brief);
     const res = await API.newSkill(name, content);
@@ -1111,6 +1183,7 @@ el.fontPop.addEventListener("click", (e) => {
 });
 document.addEventListener("click", () => { if (!el.fontPop.hidden) el.fontPop.hidden = true; });
 el.reveal.addEventListener("click", doReveal);
+el.deleteSkill.addEventListener("click", doDelete);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
