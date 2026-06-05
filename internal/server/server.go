@@ -28,6 +28,10 @@ type Server struct {
 	cloneFn func(ctx context.Context, cloneURL, ref, destDir string) error
 	// rawBaseOverride 非空时，source/check 用它替换 raw 抓取地址（仅测试用）。
 	rawBaseOverride string
+	// aiCompleteFn 抽象"调用 LLM 得到原始文本"，便于测试注入假实现。
+	// 非 nil 时直接使用它（并跳过 Configured 门槛检查）；
+	// nil 时走真实 ai.NewClient(effectiveAI()).Complete。
+	aiCompleteFn func(ctx context.Context, system, user string) (string, error)
 }
 
 func New(st *store.Store, roots []scanner.Root) *Server {
@@ -48,6 +52,9 @@ func (s *Server) Handler() http.Handler {
 	// AI
 	mux.HandleFunc("GET /api/recipes", s.handleRecipes)
 	mux.HandleFunc("POST /api/ai/optimize", s.handleOptimize)
+	// 优化规则文件
+	mux.HandleFunc("GET /api/optimizer", s.handleGetOptimizer)
+	mux.HandleFunc("PUT /api/optimizer", s.handlePutOptimizer)
 	mux.HandleFunc("POST /api/ai/create", s.handleCreate)
 	// 文件操作
 	mux.HandleFunc("POST /api/skills/new", s.handleNewSkill)

@@ -8,7 +8,12 @@ const el = {
   resultsView: $("#resultsView"), resultsMeta: $("#resultsMeta"),
   viewport: $("#viewport"), sizer: $("#sizer"), window: $("#window"),
   scrim: $("#scrim"), sheet: $("#sheet"), sheetName: $("#sheetName"),
-  sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"), sourceBox: $("#sourceBox"),
+  sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
+  sourceChip: $("#sourceChip"), sourceModal: $("#sourceModal"), sourceModalBody: $("#sourceModalBody"),
+  editOptimizer: $("#editOptimizer"),
+  optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
+  optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
+  optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
@@ -100,6 +105,8 @@ const API = {
   importSkill: (url, name) => fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, name }) }),
   checkSource: (id) => fetch("/api/skills/" + id + "/source/check", { method: "POST" }),
   applySource: (id, content) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
+  getOptimizer: () => fetch("/api/optimizer").then(J),
+  putOptimizer: (content) => fetch("/api/optimizer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
 };
 
 /* ---------- data load ---------- */
@@ -405,48 +412,53 @@ function srcLink(url) {
   if (/^https?:\/\//i.test(url || "")) return `<a class="src-url" href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a>`;
   return `<span class="src-url" style="color:var(--text-dim)">${esc(url || "")}</span>`;
 }
+const LINK_SVG = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>';
 async function loadSource(id) {
-  state.sourceEditing = false;
   try { state.source = await API.getSource(id); } catch { state.source = null; }
-  renderSource();
+  renderSourceChip();
 }
-function sourceForm(s) {
-  s = s || {};
-  return `<div class="src-form">
-    <input class="src-in" id="srcUrl" placeholder="来源链接 https://github.com/owner/repo" value="${esc(s.source_url || "")}" />
-    <div class="src-row">
-      <select class="src-in" id="srcKind">${["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select>
-      <input class="src-in" id="srcRef" placeholder="分支/tag/commit" value="${esc(s.source_ref || "")}" />
-      <select class="src-in" id="srcSync">${["none", "check_only", "manual_update"].map((k) => `<option value="${k}" ${(s.sync_policy || "none") === k ? "selected" : ""}>${SYNC_LABEL[k]}</option>`).join("")}</select>
-    </div>
-    <input class="src-in" id="srcNote" placeholder="备注（可选）" value="${esc(s.source_note || "")}" />
-    <div class="src-row">
-      <button class="src-btn primary" data-act="src-save">保存</button>
-      <button class="src-btn" data-act="src-cancel">取消</button>
-      ${s.source_url && !s.inferred ? `<button class="src-btn danger" data-act="src-clear">清除来源</button>` : ""}
-    </div></div>`;
-}
-function renderSource() {
+function renderSourceChip() {
   const s = state.source;
-  if (state.sourceEditing) { el.sourceBox.innerHTML = sourceForm(s); return; }
-  if (!s || (!s.source_url && !s.inferred)) {
-    el.sourceBox.innerHTML = `<span class="src-mut">未设置来源</span><button class="src-btn" data-act="src-edit">+ 添加来源</button>`;
-    return;
-  }
-  if (s.inferred && s.source_url) {
-    el.sourceBox.innerHTML = `<span class="src-tag infer">检测到 Git 来源</span>${srcLink(s.source_url)}<button class="src-btn primary" data-act="src-adopt">采用</button><button class="src-btn" data-act="src-edit">编辑</button>`;
-    return;
-  }
-  const checkBtn = s.source_kind === "github_repo" ? `<button class="src-btn" data-act="src-check">检查更新</button>` : "";
-  el.sourceBox.innerHTML = `<span class="src-tag">${esc(KIND_LABEL[s.source_kind] || s.source_kind)}</span>${srcLink(s.source_url)}${s.source_ref ? `<span class="src-mut">@${esc(s.source_ref)}</span>` : ""}<span class="src-mut">· ${esc(SYNC_LABEL[s.sync_policy] || s.sync_policy)}</span>${checkBtn}<button class="src-btn" data-act="src-copy">复制</button><button class="src-btn" data-act="src-edit">编辑</button>${s.source_note ? `<div class="src-note">${esc(s.source_note)}</div>` : ""}`;
+  const unset = !s || (!s.source_url && !s.inferred);
+  el.sourceChip.classList.toggle("unset", unset);
+  if (unset) { el.sourceChip.innerHTML = `<span class="src-mut">未设置来源</span>`; return; }
+  if (s.inferred && s.source_url) { el.sourceChip.innerHTML = `${LINK_SVG}<span>检测到来源</span>`; return; }
+  let label = (s.source_url || "").replace(/^https?:\/\//, "").replace(/^github\.com\//, "");
+  if (label.length > 30) label = label.slice(0, 30) + "…";
+  el.sourceChip.innerHTML = `${LINK_SVG}<span>${esc(label)}</span>`;
+}
+function openSourceModal() {
+  const s = state.source || {};
+  const persisted = s.source_url && !s.inferred;
+  const isGithub = s.source_kind === "github_repo";
+  const kindOpts = ["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${KIND_LABEL[k]}</option>`).join("");
+  const syncOpts = ["none", "check_only", "manual_update"].map((k) => `<option value="${k}" ${(s.sync_policy || "none") === k ? "selected" : ""}>${SYNC_LABEL[k]}</option>`).join("");
+  el.sourceModalBody.innerHTML = `
+    ${s.inferred && s.source_url ? `<div class="modal-note">检测到 Git 来源：${srcLink(s.source_url)} —— 确认后点保存即采用。</div>` : ""}
+    <div class="src-form" style="width:100%">
+      <label class="field"><span>来源链接</span><input class="src-in" id="srcUrl" placeholder="https://github.com/owner/repo" value="${esc(s.source_url || "")}" /></label>
+      <div class="src-row">
+        <select class="src-in" id="srcKind">${kindOpts}</select>
+        <input class="src-in" id="srcRef" placeholder="分支/tag/commit" value="${esc(s.source_ref || "")}" />
+        <select class="src-in" id="srcSync">${syncOpts}</select>
+      </div>
+      <input class="src-in" id="srcNote" placeholder="备注（可选）" value="${esc(s.source_note || "")}" />
+    </div>
+    <div class="src-row" style="margin-top:14px">
+      <button class="src-btn primary" data-act="src-save">保存</button>
+      ${persisted ? `<button class="src-btn" data-act="src-copy">复制链接</button>` : ""}
+      ${persisted && isGithub ? `<button class="src-btn" data-act="src-check">检查更新</button>` : ""}
+      ${persisted ? `<button class="src-btn danger" data-act="src-clear">清除来源</button>` : ""}
+    </div>`;
+  openModal(el.sourceModal);
 }
 async function saveSource(id, payload) {
   try {
     const r = await API.putSource(id, payload);
     if (!r.ok) { toast("保存失败", "err"); return; }
-    state.sourceEditing = false;
     await loadSource(id);
     try { const sd = await API.sources(); state.linkedSources = new Set(sd.linked || []); renderChips(); } catch { /* ignore */ }
+    closeModal();
     toast(payload.source_url ? "已保存来源" : "已清除来源");
   } catch { toast("保存失败", "err"); }
 }
@@ -459,21 +471,69 @@ async function probeAI() {
   el.aiOptimize.title = state.aiConfigured ? "用 AI 优化这份 skill" : "未配置 AI —— 点此前往设置填 API key 与模型";
   el.aiOptimize.classList.toggle("unconfigured", !state.aiConfigured);
 }
+let optSuggestions = [];
+const SEV_LABEL = { high: "高", medium: "中", low: "低" };
 async function doOptimize() {
   if (!state.current) return;
   if (!state.aiConfigured) { toast("请先在设置里配置 API key 和模型", "err"); openModal(el.settingsModal); await fillSettings(); return; }
   if (!isMd(state.filePath)) { toast("AI 优化仅支持 markdown 文件", "err"); return; }
   el.aiOptimize.disabled = true; el.aiOptimize.classList.add("loading");
+  toast("AI 按维度体检中…");
   try {
     const res = await API.optimize(state.editor.getValue());
     if (res.status === 501) { toast("请先在设置里配置 AI", "err"); openModal(el.settingsModal); await fillSettings(); return; }
-    if (!res.ok) { toast("AI 优化失败", "err"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error || "AI 优化失败", "err"); return; }
     const d = await res.json();
-    state.aiResult = d.result || "";
-    state.diffMode = "ai";
-    showDiff(state.editor.getValue(), state.aiResult);
+    optSuggestions = (d.suggestions || []).map((s, i) => ({ ...s, accepted: s.severity === "high", idx: i }));
+    renderSuggestions();
+    openModal(el.optimizeModal);
   } catch { toast("AI 优化失败", "err"); }
   finally { el.aiOptimize.disabled = false; el.aiOptimize.classList.remove("loading"); }
+}
+function renderSuggestions() {
+  const n = optSuggestions.length;
+  el.optSub.textContent = n ? `${n} 条建议 · 依据优化规则逐维度体检，逐条勾选采纳` : "没有发现可优化点 —— 这份 skill 已经不错。";
+  el.optBody.innerHTML = optSuggestions.map((s) =>
+    `<div class="sug-card ${s.accepted ? "on" : ""}" data-idx="${s.idx}">
+      <div class="sug-head">
+        <label class="sug-check"><input type="checkbox" ${s.accepted ? "checked" : ""}/><span>采纳</span></label>
+        <span class="sug-dim">${esc(s.dimension || "")}</span>
+        <span class="sev sev-${s.severity}">${SEV_LABEL[s.severity] || s.severity}</span>
+      </div>
+      <div class="sug-reason">${esc(s.reason || "")}</div>
+      <pre class="sug-before">${esc(s.original || "")}</pre>
+      <pre class="sug-after">${esc(s.suggested || "")}</pre>
+    </div>`).join("") || `<div class="no-results">没有发现可优化点。</div>`;
+  updateOptSel();
+}
+function updateOptSel() {
+  const a = optSuggestions.filter((s) => s.accepted).length;
+  el.optSel.textContent = a ? `已采纳 ${a}/${optSuggestions.length}` : "";
+  el.optApply.disabled = a === 0;
+}
+function applyOptimize() {
+  let content = state.editor.getValue(), miss = 0;
+  for (const s of optSuggestions) {
+    if (!s.accepted) continue;
+    if (s.original && content.includes(s.original)) content = content.replace(s.original, s.suggested || "");
+    else miss++;
+  }
+  state.editor.setValue(content); setMode("edit"); el.dirty.hidden = state.editor.getValue() === state.baseline;
+  closeModal(); toast(`已应用采纳项${miss ? `，${miss} 处未能定位` : ""}，记得保存`);
+}
+/* ---------- optimizer rule editor ---------- */
+let optimizerEditor = null;
+async function openOptimizer() {
+  let content = "";
+  try { content = (await API.getOptimizer()).content || ""; } catch { toast("载入规则失败", "err"); return; }
+  openModal(el.optimizerModal);
+  if (!optimizerEditor) optimizerEditor = CodeMirror.fromTextArea(el.optimizerEd, { mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true });
+  optimizerEditor.setValue(content);
+  setTimeout(() => optimizerEditor.refresh(), 50);
+}
+async function saveOptimizer() {
+  try { const r = await API.putOptimizer(optimizerEditor.getValue()); if (r.ok) { toast("已保存优化规则"); closeModal(); } else toast("保存失败", "err"); }
+  catch { toast("保存失败", "err"); }
 }
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"), b = (newT || "").split("\n");
@@ -763,14 +823,12 @@ el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
 el.sheetFull.addEventListener("click", toggleFull);
-el.sourceBox.addEventListener("click", async (e) => {
+el.sourceChip.addEventListener("click", () => { if (state.current) openSourceModal(); });
+el.sourceModalBody.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]"); if (!b || !state.current) return;
   const act = b.dataset.act, id = state.current.id;
-  if (act === "src-edit") { state.sourceEditing = true; renderSource(); }
-  else if (act === "src-cancel") { state.sourceEditing = false; renderSource(); }
-  else if (act === "src-copy") { if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url); toast("已复制来源链接"); }
-  else if (act === "src-check") { doCheckUpdate(id); }
-  else if (act === "src-adopt") { await saveSource(id, { source_url: state.source.source_url, source_kind: state.source.source_kind, source_ref: state.source.source_ref || "", source_note: "", sync_policy: "check_only" }); }
+  if (act === "src-copy") { if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url); toast("已复制来源链接"); }
+  else if (act === "src-check") { closeModal(); doCheckUpdate(id); }
   else if (act === "src-save") { await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), sync_policy: $("#srcSync").value, source_note: $("#srcNote").value.trim() }); }
   else if (act === "src-clear") { if (confirm("清除该 skill 的来源信息？")) await saveSource(id, { source_url: "" }); }
 });
@@ -791,6 +849,20 @@ el.groupsBody.addEventListener("click", (e) => {
 el.grpLocate.addEventListener("click", grpLocate);
 el.grpTrash.addEventListener("click", grpTrash);
 el.grpCompare.addEventListener("click", grpCompare);
+
+el.optBody.addEventListener("click", (e) => {
+  const card = e.target.closest(".sug-card"); if (!card) return;
+  const idx = +card.dataset.idx; const s = optSuggestions.find((x) => x.idx === idx); if (!s) return;
+  s.accepted = !s.accepted;
+  card.classList.toggle("on", s.accepted);
+  const cb = card.querySelector("input[type=checkbox]"); if (cb) cb.checked = s.accepted;
+  updateOptSel();
+});
+el.optAll.addEventListener("click", () => { optSuggestions.forEach((s) => (s.accepted = true)); renderSuggestions(); });
+el.optNone.addEventListener("click", () => { optSuggestions.forEach((s) => (s.accepted = false)); renderSuggestions(); });
+el.optApply.addEventListener("click", applyOptimize);
+el.editOptimizer.addEventListener("click", openOptimizer);
+el.optimizerSave.addEventListener("click", saveOptimizer);
 
 el.settings.addEventListener("click", async () => { openModal(el.settingsModal); await fillSettings(); });
 el.cfgSave.addEventListener("click", saveSettings);
