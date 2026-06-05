@@ -108,40 +108,6 @@ func (s *Server) handleRecipes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"recipes": recipes})
 }
 
-// handleOptimize 用配方为 system，优化传入的 SKILL.md。
-func (s *Server) handleOptimize(w http.ResponseWriter, r *http.Request) {
-	cfg := effectiveAI()
-	if !cfg.Configured() {
-		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "AI 未配置"})
-		return
-	}
-	var body struct {
-		Content string `json:"content"`
-		Recipe  string `json:"recipe"`
-	}
-	if !readJSONBody(w, r, &body) {
-		return
-	}
-
-	system := s.optimizeSystem(body.Recipe)
-	user := "下面是一份 SKILL.md，请在保持 YAML frontmatter 的前提下优化它的结构、清晰度与可操作性，只输出完整 markdown，不要解释：\n\n" + body.Content
-
-	s.complete(w, r.Context(), cfg, system, user)
-}
-
-// optimizeSystem 解析 optimize 的 system 提示：指定配方 > writing 风格 > 通用兜底。
-func (s *Server) optimizeSystem(recipeID string) string {
-	if recipeID != "" && recipeID != recipe.BlankID {
-		if b, _ := recipe.Body(s.st, recipeID); b != "" {
-			return b
-		}
-	}
-	if b := recipe.WritingRecipeBody(s.st); b != "" {
-		return b
-	}
-	return genericWritingGuidance
-}
-
 // handleCreate 按配方方法论创建一个新 skill 初稿。
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	cfg := effectiveAI()
