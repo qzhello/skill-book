@@ -57,6 +57,13 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	if !readJSONBody(w, r, &body) {
 		return
 	}
+	switch body.Provider {
+	case "", string(ai.ProviderAnthropic), string(ai.ProviderOpenAI):
+		// 允许：空（用默认/env 推断）或两个已知 provider
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "未知 provider"})
+		return
+	}
 	cur := ai.Load()
 	next := ai.Config{
 		Provider: ai.Provider(body.Provider),

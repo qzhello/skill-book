@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillbook/internal/scanner"
 	"skillbook/internal/server"
@@ -29,6 +30,9 @@ func main() {
 	roots := scanner.DefaultRoots(home, cwd)
 	srv := server.New(st, roots)
 
+	if h := strings.Split(*addr, ":")[0]; h != "" && h != "127.0.0.1" && h != "localhost" && !strings.HasPrefix(h, "127.") {
+		log.Printf("警告：监听在非回环地址 %s —— 所有 API（含写文件、Finder 打开）无认证保护，仅建议本机使用。", *addr)
+	}
 	log.Printf("SkillBook on http://%s  (db=%s)", *addr, filepath.Clean(*dbPath))
 	if err := http.ListenAndServe(*addr, srv.Handler()); err != nil {
 		log.Fatal(err)
