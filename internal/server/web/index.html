@@ -76,6 +76,7 @@
     <div class="sheet-title">
       <h3 id="sheetName"></h3>
       <span id="sheetBadges" class="sheet-badges"></span>
+      <button id="sourceChip" class="src-chip" type="button"></button>
     </div>
     <div class="sheet-tools">
       <div class="seg" id="modeSeg">
@@ -103,7 +104,6 @@
     </div>
   </div>
   <div id="sheetPath" class="sheet-path"></div>
-  <div id="sourceBox" class="source-box"></div>
   <div class="sheet-body">
     <div id="fileTree" class="file-tree"></div>
     <div class="sheet-main">
@@ -136,6 +136,7 @@
   </div>
   <div class="modal-foot">
     <button id="cfgTest" class="btn btn-ghost">测试连接</button>
+    <button id="editOptimizer" class="btn btn-ghost">编辑优化规则</button>
     <span id="cfgStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
     <button id="cfgSave" class="btn btn-primary">保存</button>
@@ -202,6 +203,37 @@
     <button id="grpCompare" class="btn btn-ghost" hidden>并排对比</button>
     <button id="grpLocate" class="btn btn-ghost">定位选中</button>
     <button id="grpTrash" class="btn btn-danger">移到废纸篓</button>
+  </div>
+</div>
+
+<!-- 来源编辑 -->
+<div id="sourceModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="来源">
+  <div class="modal-head"><h3>来源链接</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-body" id="sourceModalBody"></div>
+</div>
+
+<!-- AI 优化建议 -->
+<div id="optimizeModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="AI 优化建议">
+  <div class="modal-head"><h3 id="optTitle">AI 优化建议</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="opt-sub" id="optSub"></div>
+  <div class="opt-body" id="optBody"></div>
+  <div class="modal-foot">
+    <button id="optAll" class="btn btn-ghost btn-sm">全采纳</button>
+    <button id="optNone" class="btn btn-ghost btn-sm">全不采纳</button>
+    <span id="optSel" class="cfg-status"></span>
+    <div class="toolbar-spacer"></div>
+    <button id="optApply" class="btn btn-primary">应用采纳项</button>
+  </div>
+</div>
+
+<!-- 优化规则编辑 -->
+<div id="optimizerModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="优化规则">
+  <div class="modal-head"><h3>优化规则（AI 评审依据）</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="opt-rule-editor"><textarea id="optimizerEd"></textarea></div>
+  <div class="modal-foot">
+    <span class="src-mut">保存在本机 <code>~/.skillbook/optimizer.md</code></span>
+    <div class="toolbar-spacer"></div>
+    <button id="optimizerSave" class="btn btn-primary">保存规则</button>
   </div>
 </div>
 
