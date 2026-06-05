@@ -15,6 +15,17 @@
   --font:'Inter',system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
 }
+/* ============ 暗色主题（保持 AI 紫品牌，右上角按钮切换）============ */
+:root[data-theme="dark"]{
+  --bg:#0B0B12; --bg-elev:#14141F; --surface:#1A1A28; --surface-2:#23233A;
+  --line:#2C2C42; --line-soft:#20202F;
+  --text:#F2F1F8; --text-dim:#B6B2CC; --muted:#8B88A4; /* 暗底上对比达标 */
+  --accent:#A78BFA; --accent-strong:#8B5CF6; --accent-weak:rgba(167,139,250,.16); --accent-glow:rgba(167,139,250,.40);
+  --on-accent:#15101F;                 /* 亮紫按钮上的深色文字 */
+  --accent-ink:#DDD3FF;                /* 暗紫底上的浅紫文字 */
+  --blue:#5BB6E8; --violet:#A78BFA; --warn:#F0A23B; --danger:#F87171;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 14px 40px -12px rgba(0,0,0,.6);
+}
 *{box-sizing:border-box}
 /* 关键：.sheet/.modal/.binary-note 用了 display:flex/grid，会压过 [hidden] 的 display:none，
    导致透明遮罩一直存在并拦截点击。强制 [hidden] 真正隐藏。 */
@@ -81,6 +92,10 @@ body{
   color:var(--muted);border:1px solid transparent;cursor:pointer;transition:all var(--dur) var(--ease)}
 .icon-btn:hover{color:var(--text);background:var(--surface-2);border-color:var(--line)}
 .icon-btn:active{transform:scale(.9)}
+/* 主题切换图标：亮色显示月亮（点击进入暗色），暗色显示太阳 */
+#themeToggle .ico-sun{display:none}
+:root[data-theme="dark"] #themeToggle .ico-sun{display:block}
+:root[data-theme="dark"] #themeToggle .ico-moon{display:none}
 /* 危险操作（删除）：与常规图标按钮区分，hover 显红 */
 .icon-btn-danger{margin-left:4px}
 .icon-btn-danger:hover{color:var(--danger);background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.30)}
@@ -479,6 +494,42 @@ body{
 .toast.err{border-color:rgba(239,68,68,.4)}.toast.err .dot{color:var(--danger)}
 .toast .dot{font-size:9px}
 @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ============ 暗色主题：少数字面色 / 组件背景的覆盖 ============ */
+:root[data-theme="dark"] body{
+  background:
+    radial-gradient(1100px 560px at 88% -12%, rgba(167,139,250,.16), transparent 60%),
+    radial-gradient(900px 500px at 6% -4%, rgba(91,182,232,.10), transparent 55%),
+    var(--bg);
+}
+:root[data-theme="dark"] #sky{display:block}          /* 暗色恢复星空氛围 */
+:root[data-theme="dark"] .topbar{background:rgba(11,11,18,.72)}
+:root[data-theme="dark"] .sidebar{background:rgba(20,20,31,.5)}
+/* badge / 危险态文字在暗底提亮 */
+:root[data-theme="dark"] .badge.project,
+:root[data-theme="dark"] .badge.plat-codex{color:#8FB6FF}
+:root[data-theme="dark"] .badge.plat-claude{color:#E9A878}
+:root[data-theme="dark"] .src-btn.danger,
+:root[data-theme="dark"] .btn-danger,
+:root[data-theme="dark"] .sev-high,
+:root[data-theme="dark"] .sug-before{color:#F89A9A}
+/* CodeMirror：暗色恢复深色配色（亮色仍用上面的浅色覆盖）*/
+:root[data-theme="dark"] .cm-s-material-darker.CodeMirror{background:#0e1424;color:#eaf0fb}
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-gutters{background:#0e1424;border-right:1px solid var(--line-soft)}
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-linenumber{color:#56688c}
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-activeline-background{background:rgba(255,255,255,.05)}
+:root[data-theme="dark"] .cm-s-material-darker .CodeMirror-selected{background:rgba(167,139,250,.24)}
+:root[data-theme="dark"] .cm-s-material-darker .cm-header,
+:root[data-theme="dark"] .cm-s-material-darker .cm-strong{color:#fff}
+:root[data-theme="dark"] .cm-s-material-darker .cm-em{color:#d9c8ff}
+:root[data-theme="dark"] .cm-s-material-darker .cm-comment{color:#86e0a6}
+:root[data-theme="dark"] .cm-s-material-darker .cm-link,
+:root[data-theme="dark"] .cm-s-material-darker .cm-tag{color:#86b6ff}
+:root[data-theme="dark"] .cm-s-material-darker .cm-string{color:#a5d6a7}
+:root[data-theme="dark"] .cm-s-material-darker .cm-variable-2{color:#e6b07a}
+:root[data-theme="dark"] .cm-s-material-darker .cm-variable-3,
+:root[data-theme="dark"] .cm-s-material-darker .cm-keyword,
+:root[data-theme="dark"] .cm-s-material-darker .cm-atom{color:#c4b1ff}
 
 /* ---------- Responsive ---------- */
 @media(max-width:720px){

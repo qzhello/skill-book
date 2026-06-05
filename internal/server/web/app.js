@@ -19,7 +19,7 @@ const el = {
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   fontBtn: $("#fontBtn"), fontPop: $("#fontPop"), fsVal: $("#fsVal"),
-  save: $("#save"), dirty: $("#dirty"), deleteSkill: $("#deleteSkill"),
+  save: $("#save"), dirty: $("#dirty"), deleteSkill: $("#deleteSkill"), themeToggle: $("#themeToggle"),
   groupsModal: $("#groupsModal"), groupsTitle: $("#groupsTitle"), groupsSub: $("#groupsSub"),
   groupsBody: $("#groupsBody"), groupsSel: $("#groupsSel"),
   grpCompare: $("#grpCompare"), grpLocate: $("#grpLocate"), grpTrash: $("#grpTrash"),
@@ -1167,6 +1167,15 @@ el.tree.addEventListener("click", (e) => {
 });
 
 el.scan.addEventListener("click", doScan);
+// 主题切换（亮 / 暗），记忆到 localStorage，并同步代码高亮主题
+function setTheme(dark) {
+  const root = document.documentElement;
+  if (dark) root.setAttribute("data-theme", "dark"); else root.removeAttribute("data-theme");
+  try { localStorage.setItem("sb.theme", dark ? "dark" : "light"); } catch { /* ignore */ }
+  const l = document.getElementById("hljs-light"), d = document.getElementById("hljs-dark");
+  if (l && d) { l.disabled = dark; d.disabled = !dark; }
+}
+el.themeToggle.addEventListener("click", () => setTheme(document.documentElement.getAttribute("data-theme") !== "dark"));
 el.sidebarToggle.addEventListener("click", toggleFull);
 el.save.addEventListener("click", doSave);
 // 阅读字体/字号面板
