@@ -15,7 +15,7 @@ const el = {
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
-  modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"),
+  modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   save: $("#save"), dirty: $("#dirty"),
@@ -254,7 +254,7 @@ function renderSidebarTree() {
         html += `<button class="tree-head lvl1" data-tk="${skey}">
           <span class="tw-chev ${sOpen ? "open" : ""}">${CHEV}</span>
           <span class="th-name">${CAT_LABEL[src] || src}</span><span class="th-ct">${arr.length}</span></button>`;
-        if (sOpen) html += arr.map(treeItem).join("");
+        if (sOpen) html += arr.map((s) => treeItem(s)).join("");
       }
     }
     html += `</div>`;
@@ -298,10 +298,39 @@ function markActiveTreeItem(id) {
 }
 
 /* ---------- detail sheet ---------- */
+let splitPreviewTimer = null;
 function ensureEditor() {
   if (state.editor) return;
   state.editor = CodeMirror.fromTextArea(el.ed, { mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true });
-  state.editor.on("change", () => { el.dirty.hidden = state.editor.getValue() === state.baseline; });
+  state.editor.on("change", () => {
+    el.dirty.hidden = state.editor.getValue() === state.baseline;
+    if (state.mode === "split") { clearTimeout(splitPreviewTimer); splitPreviewTimer = setTimeout(() => { renderPreview(); syncFromEditor(); }, 140); }
+  });
+  // 用 scroller 的 DOM scroll 事件（比 CM 的 "scroll" 事件更可靠，任何滚动都触发）
+  state.editor.getScrollerElement().addEventListener("scroll", syncFromEditor, { passive: true });
+  el.preview.addEventListener("scroll", syncFromPreview, { passive: true });
+}
+// 双屏同步滚动：按滚动百分比对齐两侧，flag 防止互相触发。
+// 用 setTimeout 清 flag（requestAnimationFrame 在无重绘/后台时可能不触发，导致 flag 卡死）。
+let scrollSyncing = false;
+function endSync() { setTimeout(() => { scrollSyncing = false; }, 80); }
+function syncFromEditor() {
+  if (state.mode !== "split" || scrollSyncing || !state.editor) return;
+  const si = state.editor.getScrollInfo();
+  const denom = si.height - si.clientHeight;
+  const ratio = denom > 0 ? si.top / denom : 0;
+  scrollSyncing = true;
+  el.preview.scrollTop = ratio * (el.preview.scrollHeight - el.preview.clientHeight);
+  endSync();
+}
+function syncFromPreview() {
+  if (state.mode !== "split" || scrollSyncing || !state.editor) return;
+  const denom = el.preview.scrollHeight - el.preview.clientHeight;
+  const ratio = denom > 0 ? el.preview.scrollTop / denom : 0;
+  scrollSyncing = true;
+  const si = state.editor.getScrollInfo();
+  state.editor.scrollTo(null, ratio * (si.height - si.clientHeight));
+  endSync();
 }
 function splitFrontmatter(md) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md || "");
@@ -327,7 +356,13 @@ function setMode(m) {
   if (state.fileBinary) return;
   state.mode = m;
   el.modeSeg.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
-  if (m === "edit") {
+  el.sheetMain.classList.toggle("split", m === "split");
+  if (m === "split") {
+    ensureEditor();
+    el.editorWrap.hidden = false; el.preview.hidden = false;
+    renderPreview();
+    setTimeout(() => { state.editor.refresh(); syncFromEditor(); }, 30);
+  } else if (m === "edit") {
     el.preview.hidden = true; el.editorWrap.hidden = false; ensureEditor();
     setTimeout(() => { state.editor.refresh(); state.editor.focus(); }, 30);
   } else {
@@ -959,7 +994,6 @@ el.tree.addEventListener("click", (e) => {
 el.scan.addEventListener("click", doScan);
 el.sidebarToggle.addEventListener("click", toggleFull);
 el.save.addEventListener("click", doSave);
-el.sheetClose.addEventListener("click", closeSheet);
 el.reveal.addEventListener("click", doReveal);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
