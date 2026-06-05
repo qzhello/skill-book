@@ -1,0 +1,9 @@
+internal/server/web/style.css
+  ai_agent 277-301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4d98e8ef6226cc03c5431b46846562155eee4def",
+  "prompts": {}
+}
