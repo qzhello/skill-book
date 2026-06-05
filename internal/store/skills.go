@@ -119,6 +119,54 @@ func (s *Store) DeleteByDir(dir string) error {
 	return tx.Commit()
 }
 
+// Sweep 删除不在 keep（本次扫描产出的 id 集合）中的所有记录，并同步 FTS。
+// 用于清除已从磁盘消失的“幽灵”记录。返回被删除的条数。
+func (s *Store) Sweep(keep []string) (int, error) {
+	keepSet := make(map[string]bool, len(keep))
+	for _, id := range keep {
+		keepSet[id] = true
+	}
+	rows, err := s.db.Query(`SELECT id FROM skills`)
+	if err != nil {
+		return 0, err
+	}
+	var toDel []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if !keepSet[id] {
+			toDel = append(toDel, id)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(toDel) == 0 {
+		return 0, nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	for _, id := range toDel {
+		if _, err := tx.Exec(`DELETE FROM skills_fts WHERE rowid IN (SELECT rowid FROM skills WHERE id=?)`, id); err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(`DELETE FROM skills WHERE id=?`, id); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(toDel), nil
+}
+
 // NameGroups 分析同名 skill：返回真冲突与重复两类 name。
 //   - conflicts：同名但内容不同（body_hash 有多个）→ 需要关注。
 //   - dups：同名且内容完全一致（同一份装了多处）→ 仅提示重复。

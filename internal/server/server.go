@@ -70,13 +70,20 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
 	}
+	ids := make([]string, 0, len(skills))
 	for _, sk := range skills {
 		if err := s.st.Upsert(sk); err != nil {
 			writeJSON(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
+		ids = append(ids, sk.ID())
 	}
-	writeJSON(w, 200, map[string]int{"count": len(skills)})
+	// mark-and-sweep：清除已从磁盘消失的幽灵记录
+	removed, err := s.st.Sweep(ids)
+	if err != nil {
+		log.Printf("handleScan: Sweep failed: %v", err)
+	}
+	writeJSON(w, 200, map[string]int{"count": len(skills), "removed": removed})
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {

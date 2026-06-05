@@ -130,3 +130,39 @@ func TestNameGroups_ConflictVsDuplicate(t *testing.T) {
 		t.Fatalf("want counts foo=2 baz=2, got %+v", counts)
 	}
 }
+
+func TestSweep_RemovesGhostRecords(t *testing.T) {
+	st := newTestStore(t)
+	a := model.Skill{Source: model.SourceUser, Dir: "/d/a", FilePath: "/d/a/SKILL.md", Name: "a", BodyHash: "h", MTime: 1}
+	b := model.Skill{Source: model.SourceUser, Dir: "/d/b", FilePath: "/d/b/SKILL.md", Name: "b", BodyHash: "h", MTime: 1}
+	c := model.Skill{Source: model.SourceUser, Dir: "/d/c", FilePath: "/d/c/SKILL.md", Name: "c", BodyHash: "h", MTime: 1}
+	for _, sk := range []model.Skill{a, b, c} {
+		if err := st.Upsert(sk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 本轮只“看到”了 a 和 c，b 应被清除
+	removed, err := st.Sweep([]string{a.ID(), c.ID()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 1 {
+		t.Fatalf("want 1 removed, got %d", removed)
+	}
+	list, _ := st.List()
+	if len(list) != 2 {
+		t.Fatalf("want 2 left, got %d", len(list))
+	}
+	// b 不应再可搜到（FTS 也同步删除）
+	hits, _ := st.Search("b")
+	for _, h := range hits {
+		if h.Name == "b" {
+			t.Fatal("ghost record 'b' still searchable after sweep")
+		}
+	}
+	// 再次 sweep 全保留 → 删 0
+	removed2, _ := st.Sweep([]string{a.ID(), c.ID()})
+	if removed2 != 0 {
+		t.Fatalf("want 0 on second sweep, got %d", removed2)
+	}
+}
