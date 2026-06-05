@@ -1,0 +1,13 @@
+internal/server/web/app.js
+  ai_agent 18,257,301,305-333,359-365
+internal/server/web/index.html
+  ai_agent 86,94-97,108,110
+internal/server/web/style.css
+  ai_agent 274,276-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "07eb83f94162f5fa421644286e8ee5e208bbb6af",
+  "prompts": {}
+}
