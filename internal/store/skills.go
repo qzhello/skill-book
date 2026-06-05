@@ -101,6 +101,24 @@ func (s *Store) Get(id string) (*model.Skill, error) {
 	return &sk, nil
 }
 
+// DeleteByDir 按目录等值删除一条 skill，并同步移除其 FTS 行。
+// dir 不匹配任何行时为 no-op，不报错。
+func (s *Store) DeleteByDir(dir string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM skills_fts WHERE rowid IN (SELECT rowid FROM skills WHERE dir=?)`, dir); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM skills WHERE dir=?`, dir); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // NameGroups 分析同名 skill：返回真冲突与重复两类 name。
 //   - conflicts：同名但内容不同（body_hash 有多个）→ 需要关注。
 //   - dups：同名且内容完全一致（同一份装了多处）→ 仅提示重复。
