@@ -37,6 +37,7 @@ const state = {
   scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false,
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
+  collapsed: new Set(),
   groupKind: "dup", groupSel: new Set(),
 };
 
@@ -260,21 +261,57 @@ function setMode(m) {
     el.editorWrap.hidden = true; el.preview.hidden = false; renderPreview();
   }
 }
-const FILE_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const FILE_SVG = '<svg class="ft-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+const FOLDER_SVG = '<svg class="ft-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>';
+const CHEVRON_SVG = '<svg class="ft-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+
 async function loadFiles(id) {
+  state.collapsed = new Set(); // 每次打开 skill 默认全展开
   try { const d = await API.files(id); state.files = d.files || []; }
   catch { state.files = []; }
   renderTree();
 }
+// 把后端的扁平 {rel,abs,dir} 列表构建成嵌套树
+function buildTree() {
+  const root = { name: "", children: {} };
+  for (const f of state.files) {
+    const parts = f.rel.split("/");
+    let node = root;
+    for (let i = 0; i < parts.length; i++) {
+      const name = parts[i], leaf = i === parts.length - 1;
+      if (!node.children[name]) node.children[name] = { name, children: {}, dir: true, rel: parts.slice(0, i + 1).join("/"), abs: null };
+      node = node.children[name];
+      if (leaf) { node.dir = f.dir; node.abs = f.abs; }
+    }
+  }
+  return root;
+}
+function cmpNode(a, b) {
+  if (a.name === "SKILL.md") return -1;
+  if (b.name === "SKILL.md") return 1;
+  if (a.dir !== b.dir) return a.dir ? -1 : 1;
+  return a.name.localeCompare(b.name);
+}
+function renderNode(node, depth) {
+  const kids = Object.values(node.children).sort(cmpNode);
+  let html = "";
+  for (const k of kids) {
+    const pad = 8 + depth * 14;
+    const hasChildren = Object.keys(k.children).length > 0;
+    if (k.dir) {
+      const collapsed = state.collapsed.has(k.rel);
+      const chev = hasChildren ? `<span class="ft-chevwrap${collapsed ? "" : " open"}">${CHEVRON_SVG}</span>` : '<span class="ft-chevwrap"></span>';
+      html += `<div class="ft-row dir"${hasChildren ? ` data-toggle="${esc(k.rel)}"` : ""} style="padding-left:${pad}px">${chev}${FOLDER_SVG}<span>${esc(k.name)}</span></div>`;
+      if (hasChildren && !collapsed) html += renderNode(k, depth + 1);
+    } else {
+      const active = k.abs === state.filePath ? " active" : "";
+      html += `<div class="ft-row file${active}" data-abs="${esc(k.abs)}" title="${esc(k.rel)}" style="padding-left:${pad + 14}px">${FILE_SVG}<span>${esc(k.name)}</span></div>`;
+    }
+  }
+  return html;
+}
 function renderTree() {
-  el.fileTree.innerHTML = state.files.map((f) => {
-    const depth = (f.rel.match(/\//g) || []).length;
-    const pad = `style="padding-left:${8 + depth * 12}px"`;
-    const base = f.rel.split("/").pop();
-    if (f.dir) return `<div class="ft-row dir" ${pad}>${esc(base)}</div>`;
-    const active = f.abs === state.filePath ? " active" : "";
-    return `<div class="ft-row${active}" ${pad} data-abs="${esc(f.abs)}" title="${esc(f.rel)}">${FILE_SVG}<span>${esc(base)}</span></div>`;
-  }).join("");
+  el.fileTree.innerHTML = renderNode(buildTree(), 0) || '<div class="ft-row dir" style="padding-left:8px">（空目录）</div>';
 }
 async function openFile(abs, mode) {
   if (!el.dirty.hidden && state.filePath && state.filePath !== abs &&
@@ -317,6 +354,7 @@ function closeSheet() {
   el.scrim.classList.remove("show"); el.sheet.classList.remove("show"); el.sheet.setAttribute("aria-hidden", "true");
   setTimeout(() => { el.scrim.hidden = true; el.sheet.hidden = true; }, 260);
   state.current = null; state.full = false; el.sheet.classList.remove("full");
+  if (!el.overview.hidden) renderOverview(); // 回到首页时刷新“最近打开”
 }
 async function doSave() {
   if (!state.current || state.fileBinary || !state.filePath) return;
@@ -602,7 +640,11 @@ el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
 el.sheetFull.addEventListener("click", toggleFull);
-el.fileTree.addEventListener("click", (e) => { const row = e.target.closest(".ft-row[data-abs]"); if (row) openFile(row.dataset.abs, state.mode); });
+el.fileTree.addEventListener("click", (e) => {
+  const tog = e.target.closest(".ft-row[data-toggle]");
+  if (tog) { const rel = tog.dataset.toggle; if (state.collapsed.has(rel)) state.collapsed.delete(rel); else state.collapsed.add(rel); renderTree(); return; }
+  const row = e.target.closest(".ft-row[data-abs]"); if (row) openFile(row.dataset.abs, state.mode);
+});
 
 el.groupsBody.addEventListener("click", (e) => {
   const open = e.target.closest(".open-link"); if (open) { closeModal(); openDetail(open.dataset.open, false); return; }
