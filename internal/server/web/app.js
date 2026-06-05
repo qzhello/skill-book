@@ -40,7 +40,22 @@ const el = {
 
 const ROW_H = 60, OVERSCAN = 6;
 const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
-const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
+const PLATFORM_LABEL = { claude: "Claude", codex: "Codex" };
+const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", claude: "Claude", codex: "Codex", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
+function platformBadge(s) {
+  const p = s && s.platform;
+  if (!p || !PLATFORM_LABEL[p]) return "";
+  return `<span class="badge plat-${p}" title="平台：${PLATFORM_LABEL[p]}">${PLATFORM_LABEL[p]}</span>`;
+}
+function relTime(unix) {
+  if (!unix) return "";
+  const d = Date.now() / 1000 - unix;
+  if (d < 60) return "刚刚";
+  if (d < 3600) return Math.floor(d / 60) + " 分钟前";
+  if (d < 86400) return Math.floor(d / 3600) + " 小时前";
+  if (d < 2592000) return Math.floor(d / 86400) + " 天前";
+  try { return new Date(unix * 1000).toLocaleDateString(); } catch { return ""; }
+}
 const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展示
 
 const state = {
@@ -102,6 +117,7 @@ const API = {
   putFile: (path, content) => fetch("/api/file", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) }),
   trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
   groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
+  sync: (fromId, toIds) => fetch("/api/skills/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fromId, toIds }) }),
   getSource: (id) => fetch("/api/skills/" + id + "/source").then(J),
   putSource: (id, s) => fetch("/api/skills/" + id + "/source", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }),
   sources: () => fetch("/api/sources").then(J),
@@ -157,6 +173,7 @@ function compute() {
   else if (state.cat === "dup") base = base.filter((s) => s.dup);
   else if (state.cat === "linked") base = base.filter((s) => state.linkedSources.has(s.id));
   else if (state.cat === "unlinked") base = base.filter((s) => !state.linkedSources.has(s.id));
+  else if (state.cat === "claude" || state.cat === "codex") base = base.filter((s) => s.platform === state.cat);
   else if (state.cat !== "all") base = base.filter((s) => s.source === state.cat);
   if (!q) { state.view = base.slice().sort((a, b) => a.name.localeCompare(b.name)); return; }
   const scored = [];
@@ -169,10 +186,13 @@ function compute() {
 function renderChips() {
   if (!state.scanned) { el.chips.hidden = true; return; }
   el.chips.hidden = false;
-  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, conflict: 0, dup: 0 };
-  for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.conflict) counts.conflict++; if (s.dup) counts.dup++; }
+  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, claude: 0, codex: 0, conflict: 0, dup: 0 };
+  for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.platform) counts[s.platform] = (counts[s.platform] || 0) + 1; if (s.conflict) counts.conflict++; if (s.dup) counts.dup++; }
   const linked = state.linkedSources.size;
-  const defs = [["all", "全部"], ["user", "用户级"], ["project", "项目级"]];
+  const defs = [["all", "全部"]];
+  if (counts.claude) defs.push(["claude", "Claude"]);
+  if (counts.codex) defs.push(["codex", "Codex"]);
+  defs.push(["user", "用户级"], ["project", "项目级"]);
   if (counts.plugin) defs.push(["plugin", "插件"]);
   if (counts.conflict) defs.push(["conflict", "冲突"]);
   if (counts.dup) defs.push(["dup", "重复"]);
@@ -251,10 +271,11 @@ function renderOverview() {
 function rowHTML(s, idx, animate) {
   const cls = "row" + (idx === state.cursor ? " cursor" : "") + (animate ? " enter" : "");
   const delay = animate ? `style="animation-delay:${Math.min(idx, 14) * 26}ms"` : "";
+  const t = s.mtime ? `<span class="row-time" title="更新于 ${esc(fmtTime(s.mtime))}">${esc(relTime(s.mtime))}</span>` : "";
   return `<div class="${cls}" ${delay} data-idx="${idx}" data-id="${s.id}">
     <div class="row-main"><div class="row-name">${highlight(s.name, state.query.trim().toLowerCase())}
-      <span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flagBadge(s)}</div>
-      <div class="row-desc">${esc(s.description || "—")}</div></div></div>`;
+      ${platformBadge(s)}<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flagBadge(s)}</div>
+      <div class="row-desc">${esc(s.description || "—")}</div></div>${t}</div>`;
 }
 function renderResults() {
   const n = state.view.length, q = state.query.trim();
@@ -391,8 +412,8 @@ async function openDetail(id, fromSearch) {
   state.current = s;
   el.sheetName.textContent = s.name;
   const flag = flagBadge({ conflict: state.conflicts.has(s.name), dup: state.dups.has(s.name), dupCount: state.dupCounts[s.name] || 0 });
-  el.sheetBadges.innerHTML = `<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flag}`;
-  el.sheetPath.textContent = s.file_path;
+  el.sheetBadges.innerHTML = `${platformBadge(s)}<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flag}`;
+  el.sheetPath.textContent = s.file_path + (s.mtime ? `   ·   更新于 ${fmtTime(s.mtime)}` : "");
   el.dirty.hidden = true;
   el.scrim.hidden = false; el.sheet.hidden = false; el.sheet.setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => { el.scrim.classList.add("show"); el.sheet.classList.add("show"); });
@@ -413,16 +434,34 @@ function closeSheet() {
 }
 async function doSave() {
   if (!state.current || state.fileBinary || !state.filePath) return;
+  // 保存前记录：当前 skill 此前是否处于“重复组”（同名同内容），用于保存后提示同步。
+  const wasDup = !!(state.current && state.dups.has(state.current.name));
+  const curId = state.current && state.current.id, curName = state.current && state.current.name;
   el.save.disabled = true;
   try {
     const res = await API.putFile(state.filePath, state.editor.getValue());
     if (res.ok) {
       const d = await res.json().catch(() => ({}));
       state.baseline = state.editor.getValue(); el.dirty.hidden = true; toast("已保存");
-      if (d.reindexed) await loadAll();
+      if (d.reindexed) {
+        await loadAll();
+        if (wasDup) await maybeSyncDuplicates(curId, curName);
+      }
     } else toast("保存失败", "err");
   } catch { toast("保存失败", "err"); }
   finally { el.save.disabled = false; }
+}
+// 编辑了某个重复副本后，提示把改动一键同步到其它同名副本。
+async function maybeSyncDuplicates(fromId, name) {
+  const sibs = state.all.filter((s) => s.name === name && s.id !== fromId);
+  if (!sibs.length) return;
+  if (!confirm(`这个 skill 还有 ${sibs.length} 个同名副本。是否把它们同步为当前内容？（被覆盖的 SKILL.md 会存 .bak，可恢复）`)) return;
+  try {
+    const r = await API.sync(fromId, sibs.map((s) => s.id));
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) { toast(`已同步 ${d.synced || 0} 个副本`); await loadAll(); }
+    else toast(d.error || "同步失败", "err");
+  } catch { toast("同步失败", "err"); }
 }
 async function doReveal() {
   const path = state.filePath || (state.current && state.current.file_path);
@@ -693,13 +732,20 @@ function renderGroups() {
   el.groupsSub.textContent = groups.length
     ? `${groups.length} 组同名${state.groupKind === "conflict" ? "（内容不同）" : "（内容一致）"}，共 ${groups.reduce((a, g) => a + g.copies.length, 0)} 个副本`
     : "没有发现" + (state.groupKind === "conflict" ? "冲突" : "重复");
+  const isConflict = state.groupKind === "conflict";
   el.groupsBody.innerHTML = groups.map((g) => {
-    const rows = g.copies.map((c) =>
-      `<div class="copy-row" data-path="${esc(c.file_path)}" data-dir="${esc(c.dir)}" data-id="${esc(c.id)}">
+    const newest = Math.max(...g.copies.map((c) => c.mtime || 0));
+    const rows = g.copies.map((c) => {
+      const isNewest = isConflict && c.mtime && c.mtime === newest;
+      const syncBtn = isConflict
+        ? `<button class="copy-sync" data-sync="${esc(c.id)}" title="以此副本为准，覆盖同步同组其它副本（被覆盖的存 .bak）">以此为准 ›</button>`
+        : "";
+      return `<div class="copy-row" data-path="${esc(c.file_path)}" data-dir="${esc(c.dir)}" data-id="${esc(c.id)}">
         <input type="checkbox" ${state.groupSel.has(c.file_path) ? "checked" : ""} />
-        <div class="copy-main"><div class="copy-name"><span class="badge ${c.source}">${CAT_LABEL[c.source] || c.source}</span>${esc(g.name)}<span class="open-link" data-open="${esc(c.id)}">打开 ›</span></div>
+        <div class="copy-main"><div class="copy-name">${platformBadge(c)}<span class="badge ${c.source}">${CAT_LABEL[c.source] || c.source}</span>${esc(g.name)}${isNewest ? '<span class="newest-tag">最新</span>' : ""}<span class="open-link" data-open="${esc(c.id)}">打开 ›</span></div>
           <div class="copy-path">${esc(c.file_path)}</div></div>
-        <div class="copy-meta">${fmtSize(c.size || 0)} · ${fmtTime(c.mtime)}</div></div>`).join("");
+        <div class="copy-meta">${fmtSize(c.size || 0)} · ${esc(fmtTime(c.mtime))}${syncBtn}</div></div>`;
+    }).join("");
     return `<div class="group-card"><div class="group-head"><span class="gname">${esc(g.name)}</span><span class="gcount">${g.copies.length} 份</span></div>${rows}</div>`;
   }).join("") || '<div class="no-results">没有数据</div>';
   updateGroupSel();
@@ -737,6 +783,23 @@ async function grpCompare() {
   const [a, b] = await Promise.all([API.get(ids[0]), API.get(ids[1])]);
   state.diffMode = "compare";
   showDiff(a.body || "", b.body || "", { oldLabel: "副本 A", newLabel: "副本 B", allowApply: false });
+}
+// 冲突合并：以 fromId 副本为准，覆盖同步同组其它副本。
+async function grpSyncFrom(fromId) {
+  const grp = (state.groupData || []).find((g) => g.copies.some((c) => c.id === fromId));
+  if (!grp) return;
+  const toIds = grp.copies.map((c) => c.id).filter((id) => id !== fromId);
+  if (!toIds.length) return;
+  if (!confirm(`将以选中副本为准，覆盖同步该组其它 ${toIds.length} 个副本（被覆盖的 SKILL.md 会存 .bak，可恢复）。确定？`)) return;
+  try {
+    const r = await API.sync(fromId, toIds);
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) {
+      toast(`已同步 ${d.synced || 0} 个副本` + ((d.failed || []).length ? `，${d.failed.length} 个失败` : ""));
+      await loadAll();
+      const g = await API.groups(state.groupKind); state.groupData = g.groups || []; renderGroups();
+    } else { toast(d.error || "同步失败", "err"); }
+  } catch { toast("同步失败", "err"); }
 }
 
 /* ---------- settings ---------- */
@@ -925,6 +988,7 @@ el.fileTree.addEventListener("click", (e) => {
 });
 
 el.groupsBody.addEventListener("click", (e) => {
+  const sync = e.target.closest("[data-sync]"); if (sync) { e.stopPropagation(); grpSyncFrom(sync.dataset.sync); return; }
   const open = e.target.closest(".open-link"); if (open) { closeModal(); openDetail(open.dataset.open, false); return; }
   const row = e.target.closest(".copy-row"); if (!row) return;
   const path = row.dataset.path;

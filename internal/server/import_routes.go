@@ -161,7 +161,7 @@ func (s *Server) importFromClone(cloneRoot, subpath, name, destDir, srcURL, ref 
 		mtime = info.ModTime().Unix()
 	}
 	sk := model.Skill{
-		Source: model.SourceUser, Dir: destDir, FilePath: destMD,
+		Source: model.SourceUser, Platform: model.PlatformClaude, Dir: destDir, FilePath: destMD,
 		Name: pname, Description: desc, Body: string(content),
 		BodyHash: model.HashBody(string(content)), MTime: mtime,
 	}
@@ -276,7 +276,7 @@ func (s *Server) handleSourceApply(w http.ResponseWriter, r *http.Request) {
 	if info, err := os.Stat(sk.FilePath); err == nil {
 		mtime = info.ModTime().Unix()
 	}
-	updated := model.Skill{Source: sk.Source, Dir: sk.Dir, FilePath: sk.FilePath,
+	updated := model.Skill{Source: sk.Source, Platform: sk.Platform, Dir: sk.Dir, FilePath: sk.FilePath,
 		Name: name, Description: desc, Body: string(content),
 		BodyHash: model.HashBody(string(content)), MTime: mtime}
 	if err := s.st.Upsert(updated); err != nil {

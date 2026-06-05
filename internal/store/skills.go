@@ -21,13 +21,13 @@ func (s *Store) Upsert(sk model.Skill) error {
 		return err
 	}
 	res, err := tx.Exec(`
-INSERT INTO skills(id,source,dir,file_path,name,description,body,body_hash,mtime)
-VALUES(?,?,?,?,?,?,?,?,?)
+INSERT INTO skills(id,source,platform,dir,file_path,name,description,body,body_hash,mtime)
+VALUES(?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(id) DO UPDATE SET
-  source=excluded.source, dir=excluded.dir, file_path=excluded.file_path,
+  source=excluded.source, platform=excluded.platform, dir=excluded.dir, file_path=excluded.file_path,
   name=excluded.name, description=excluded.description, body=excluded.body,
   body_hash=excluded.body_hash, mtime=excluded.mtime`,
-		id, sk.Source, sk.Dir, sk.FilePath, sk.Name, sk.Description, sk.Body, sk.BodyHash, sk.MTime)
+		id, sk.Source, sk.Platform, sk.Dir, sk.FilePath, sk.Name, sk.Description, sk.Body, sk.BodyHash, sk.MTime)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func scanRows(rows interface {
 	var out []model.Skill
 	for rows.Next() {
 		var sk model.Skill
-		if err := rows.Scan(&sk.Source, &sk.Dir, &sk.FilePath, &sk.Name, &sk.Description, &sk.Body, &sk.MTime); err != nil {
+		if err := rows.Scan(&sk.Source, &sk.Platform, &sk.Dir, &sk.FilePath, &sk.Name, &sk.Description, &sk.Body, &sk.MTime); err != nil {
 			return nil, err
 		}
 		out = append(out, sk)
@@ -61,7 +61,7 @@ func scanRows(rows interface {
 
 // List 返回全部 skill，按 name 升序。
 func (s *Store) List() ([]model.Skill, error) {
-	rows, err := s.db.Query(`SELECT source,dir,file_path,name,description,body,mtime FROM skills ORDER BY name`)
+	rows, err := s.db.Query(`SELECT source,platform,dir,file_path,name,description,body,mtime FROM skills ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *Store) Search(query string) ([]model.Skill, error) {
 	}
 	match := query + "*"
 	rows, err := s.db.Query(`
-SELECT s.source,s.dir,s.file_path,s.name,s.description,s.body,s.mtime
+SELECT s.source,s.platform,s.dir,s.file_path,s.name,s.description,s.body,s.mtime
 FROM skills_fts f JOIN skills s ON s.rowid=f.rowid
 WHERE skills_fts MATCH ? ORDER BY rank`, match)
 	if err != nil {
@@ -89,9 +89,9 @@ WHERE skills_fts MATCH ? ORDER BY rank`, match)
 
 // Get 按 ID 取单条，不存在返回 (nil,nil)。
 func (s *Store) Get(id string) (*model.Skill, error) {
-	row := s.db.QueryRow(`SELECT source,dir,file_path,name,description,body,mtime FROM skills WHERE id=?`, id)
+	row := s.db.QueryRow(`SELECT source,platform,dir,file_path,name,description,body,mtime FROM skills WHERE id=?`, id)
 	var sk model.Skill
-	err := row.Scan(&sk.Source, &sk.Dir, &sk.FilePath, &sk.Name, &sk.Description, &sk.Body, &sk.MTime)
+	err := row.Scan(&sk.Source, &sk.Platform, &sk.Dir, &sk.FilePath, &sk.Name, &sk.Description, &sk.Body, &sk.MTime)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil

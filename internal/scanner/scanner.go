@@ -8,10 +8,11 @@ import (
 	"skillbook/internal/model"
 )
 
-// Root 是一个扫描根目录及其来源标签。
+// Root 是一个扫描根目录及其来源/平台标签。
 type Root struct {
-	Path   string
-	Source model.Source
+	Path     string
+	Source   model.Source
+	Platform model.Platform
 }
 
 // ScanRoots 遍历每个 root，找到所有包含 SKILL.md 的目录，解析为 Skill。
@@ -45,6 +46,7 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 			}
 			out = append(out, model.Skill{
 				Source:      root.Source,
+				Platform:    root.Platform,
 				Dir:         dir,
 				FilePath:    p,
 				Name:        name,
@@ -67,8 +69,8 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 // 是噪声而非用户要治理的对象。Codex 用户级目录存在才会被扫到（ScanRoots 跳过缺失根）。
 func DefaultRoots(home, cwd string) []Root {
 	return []Root{
-		{Path: filepath.Join(home, ".claude", "skills"), Source: model.SourceUser},
-		{Path: filepath.Join(cwd, ".claude", "skills"), Source: model.SourceProject},
-		{Path: filepath.Join(home, ".codex", "skills"), Source: model.SourceUser},
+		{Path: filepath.Join(home, ".claude", "skills"), Source: model.SourceUser, Platform: model.PlatformClaude},
+		{Path: filepath.Join(cwd, ".claude", "skills"), Source: model.SourceProject, Platform: model.PlatformClaude},
+		{Path: filepath.Join(home, ".codex", "skills"), Source: model.SourceUser, Platform: model.PlatformCodex},
 	}
 }

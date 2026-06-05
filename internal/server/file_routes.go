@@ -58,7 +58,7 @@ func (s *Server) handleNewSkill(w http.ResponseWriter, r *http.Request) {
 		mtime = info.ModTime().Unix()
 	}
 	sk := model.Skill{
-		Source: model.SourceUser, Dir: dir, FilePath: filePath,
+		Source: model.SourceUser, Platform: model.PlatformClaude, Dir: dir, FilePath: filePath,
 		Name: name, Description: desc, Body: body.Content,
 		BodyHash: model.HashBody(body.Content), MTime: mtime,
 	}

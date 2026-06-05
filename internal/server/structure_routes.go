@@ -209,7 +209,7 @@ func (s *Server) reindexSkill(sk *model.Skill) error {
 		mtime = info.ModTime().Unix()
 	}
 	updated := model.Skill{
-		Source: sk.Source, Dir: sk.Dir, FilePath: sk.FilePath,
+		Source: sk.Source, Platform: sk.Platform, Dir: sk.Dir, FilePath: sk.FilePath,
 		Name: name, Description: desc, Body: string(content),
 		BodyHash: model.HashBody(string(content)), MTime: mtime,
 	}
@@ -270,10 +270,12 @@ func (s *Server) handleTrash(w http.ResponseWriter, r *http.Request) {
 type groupCopy struct {
 	ID       string `json:"id"`
 	Source   string `json:"source"`
+	Platform string `json:"platform"`
 	Dir      string `json:"dir"`
 	FilePath string `json:"file_path"`
 	Size     int64  `json:"size"`
 	MTime    int64  `json:"mtime"`
+	Body     string `json:"body"` // 供前端做版本 diff
 }
 
 type group struct {
@@ -321,8 +323,8 @@ func (s *Server) handleGroups(w http.ResponseWriter, r *http.Request) {
 				size = info.Size()
 			}
 			copies = append(copies, groupCopy{
-				ID: sk.ID(), Source: string(sk.Source), Dir: sk.Dir,
-				FilePath: sk.FilePath, Size: size, MTime: sk.MTime,
+				ID: sk.ID(), Source: string(sk.Source), Platform: string(sk.Platform), Dir: sk.Dir,
+				FilePath: sk.FilePath, Size: size, MTime: sk.MTime, Body: sk.Body,
 			})
 		}
 		groups = append(groups, group{Name: name, Kind: kind, Copies: copies})
@@ -330,4 +332,80 @@ func (s *Server) handleGroups(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(groups, func(i, j int) bool { return groups[i].Name < groups[j].Name })
 
 	writeJSON(w, http.StatusOK, map[string]any{"groups": groups})
+}
+
+// handleSync 把 fromId 的 SKILL.md 内容覆盖同步到 toIds 的每个副本。
+//
+// 用途：
+//   - 重复(同名同内容)编辑后，把新内容同步到其它相同副本，保持一致；
+//   - 冲突(同名异内容)中选一个版本为准，统一其它副本。
+//
+// 安全：editor.Save 提供路径越界防护；覆盖前若目标不在 git 工作树则把原
+// SKILL.md 备份为同目录 .bak（可恢复）。fromId 不会被改动。
+func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		FromID string   `json:"fromId"`
+		ToIDs  []string `json:"toIds"`
+	}
+	if !readJSONBody(w, r, &body) {
+		return
+	}
+	from, err := s.st.Get(body.FromID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if from == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "源 skill 不存在"})
+		return
+	}
+	if len(body.ToIDs) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "没有同步目标"})
+		return
+	}
+
+	content := from.Body
+	synced := 0
+	failed := []string{}
+	for _, tid := range body.ToIDs {
+		if tid == body.FromID {
+			continue // 不覆盖自身
+		}
+		to, gerr := s.st.Get(tid)
+		if gerr != nil || to == nil {
+			failed = append(failed, tid)
+			continue
+		}
+		// 可恢复：不在 git 工作树时把现有 SKILL.md 备份为 .bak。
+		if !insideGitWorktree(to.Dir) {
+			if existing, e := os.ReadFile(to.FilePath); e == nil {
+				_ = os.WriteFile(to.FilePath+".bak", existing, 0o644)
+			}
+		}
+		ed := editor.New(filepath.Dir(to.Dir))
+		if err := ed.Save(to.FilePath, content); err != nil {
+			failed = append(failed, tid)
+			continue
+		}
+		fresh, _ := os.ReadFile(to.FilePath)
+		name, desc, _ := scanner.ParseFrontmatter(fresh)
+		if name == "" {
+			name = filepath.Base(to.Dir)
+		}
+		var mtime int64
+		if info, e := os.Stat(to.FilePath); e == nil {
+			mtime = info.ModTime().Unix()
+		}
+		if err := s.st.Upsert(model.Skill{
+			Source: to.Source, Platform: to.Platform, Dir: to.Dir, FilePath: to.FilePath,
+			Name: name, Description: desc, Body: string(fresh),
+			BodyHash: model.HashBody(string(fresh)), MTime: mtime,
+		}); err != nil {
+			// 文件已写成功，仅索引更新失败。
+			failed = append(failed, tid)
+			continue
+		}
+		synced++
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"synced": synced, "failed": failed})
 }

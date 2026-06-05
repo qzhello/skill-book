@@ -68,6 +68,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/file", s.handleGetFile)
 	mux.HandleFunc("PUT /api/file", s.handlePutFile)
 	mux.HandleFunc("POST /api/skills/trash", s.handleTrash)
+	mux.HandleFunc("POST /api/skills/sync", s.handleSync)
 	mux.HandleFunc("GET /api/groups", s.handleGroups)
 	// 来源链接
 	mux.HandleFunc("GET /api/skills/{id}/source", s.handleGetSource)
@@ -132,12 +133,14 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		ID          string `json:"id"`
 		Name        string `json:"name"`
 		Source      string `json:"source"`
+		Platform    string `json:"platform"`
 		Description string `json:"description"`
 		Dir         string `json:"dir"`
+		MTime       int64  `json:"mtime"`
 	}
 	out := make([]item, 0, len(skills))
 	for _, sk := range skills {
-		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), sk.Description, sk.Dir})
+		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), string(sk.Platform), sk.Description, sk.Dir, sk.MTime})
 	}
 	writeJSON(w, 200, map[string]any{
 		"conflicts": conflicts, "dups": dups, "dupCounts": dupCounts, "skills": out,
@@ -155,8 +158,8 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{
-		"id": sk.ID(), "name": sk.Name, "source": string(sk.Source),
-		"description": sk.Description, "dir": sk.Dir, "file_path": sk.FilePath, "body": sk.Body,
+		"id": sk.ID(), "name": sk.Name, "source": string(sk.Source), "platform": string(sk.Platform),
+		"description": sk.Description, "dir": sk.Dir, "file_path": sk.FilePath, "body": sk.Body, "mtime": sk.MTime,
 	})
 }
 
@@ -193,9 +196,13 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = filepath.Base(sk.Dir)
 	}
-	updated := model.Skill{Source: sk.Source, Dir: sk.Dir, FilePath: sk.FilePath,
+	mtime := sk.MTime
+	if info, e := os.Stat(sk.FilePath); e == nil {
+		mtime = info.ModTime().Unix()
+	}
+	updated := model.Skill{Source: sk.Source, Platform: sk.Platform, Dir: sk.Dir, FilePath: sk.FilePath,
 		Name: name, Description: desc, Body: string(content),
-		BodyHash: model.HashBody(string(content)), MTime: sk.MTime}
+		BodyHash: model.HashBody(string(content)), MTime: mtime}
 	if err := s.st.Upsert(updated); err != nil {
 		// 文件已成功保存，仅索引更新失败，记日志后仍返回 200。
 		log.Printf("handleSave: Upsert index update failed for %s: %v", sk.FilePath, err)

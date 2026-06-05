@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS skills (
   description TEXT NOT NULL,
   body        TEXT NOT NULL,
   body_hash   TEXT NOT NULL DEFAULT '',
+  platform    TEXT NOT NULL DEFAULT 'claude',
   mtime       INTEGER NOT NULL
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS skills_fts USING fts5(
@@ -46,8 +47,9 @@ func Open(dsn string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	// 迁移：为升级前创建的旧表补 body_hash 列（已存在则忽略报错）。
+	// 迁移：为升级前创建的旧表补列（已存在则忽略报错）。
 	_, _ = db.Exec(`ALTER TABLE skills ADD COLUMN body_hash TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE skills ADD COLUMN platform TEXT NOT NULL DEFAULT 'claude'`)
 	return &Store{db: db}, nil
 }
 

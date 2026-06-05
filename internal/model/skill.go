@@ -13,16 +13,25 @@ const (
 	SourcePlugin  Source = "plugin"
 )
 
+// Platform 标识 skill 归属的工具平台。
+type Platform string
+
+const (
+	PlatformClaude Platform = "claude" // ~/.claude/skills、<project>/.claude/skills
+	PlatformCodex  Platform = "codex"  // ~/.codex/skills
+)
+
 // Skill 是磁盘上一个 skill 目录的元数据。文件是唯一真相源。
 type Skill struct {
 	Source      Source
-	Dir         string // skill 目录绝对路径
-	FilePath    string // SKILL.md 绝对路径
-	Name        string // frontmatter name，缺省回退为目录名
-	Description string // frontmatter description
-	Body        string // SKILL.md 全文
-	BodyHash    string // Body 的内容哈希，用于区分“重复”与“真冲突”
-	MTime       int64  // SKILL.md 修改时间(unix)
+	Platform    Platform // 归属平台：claude / codex
+	Dir         string   // skill 目录绝对路径
+	FilePath    string   // SKILL.md 绝对路径
+	Name        string   // frontmatter name，缺省回退为目录名
+	Description string   // frontmatter description
+	Body        string   // SKILL.md 全文
+	BodyHash    string   // Body 的内容哈希，用于区分“重复”与“真冲突”
+	MTime       int64    // SKILL.md 修改时间(unix)
 }
 
 // ID 由来源+目录派生，稳定且唯一。
