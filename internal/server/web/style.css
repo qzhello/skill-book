@@ -240,6 +240,8 @@ body{
   width:30px;height:54px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);cursor:pointer;
   transition:all var(--dur) var(--ease)}
 .sheet-expand:hover{color:var(--accent);border-color:var(--accent)}
+.sheet-expand svg{transition:transform var(--dur) var(--ease)}
+.sheet.full .sheet-expand svg{transform:rotate(180deg)}
 .sheet.full{width:100vw;border-left:none}
 .btn-danger{background:var(--surface);color:#ff8b8b;border:1px solid rgba(239,68,68,.35)}
 .btn-danger:hover:not(:disabled){background:rgba(239,68,68,.14);border-color:var(--danger);color:#fff}
