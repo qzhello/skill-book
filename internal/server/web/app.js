@@ -16,7 +16,7 @@ const el = {
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"), splitGutter: $("#splitGutter"),
-  binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
+  binaryNote: $("#binaryNote"), fileTree: $("#fileTree"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   fontBtn: $("#fontBtn"), fontPop: $("#fontPop"), fsVal: $("#fsVal"),
   save: $("#save"), dirty: $("#dirty"),
@@ -1114,7 +1114,6 @@ el.reveal.addEventListener("click", doReveal);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
-el.sheetFull.addEventListener("click", toggleFull);
 el.sourceChip.addEventListener("click", () => { if (state.current) openSourceModal(); });
 el.sourceModalBody.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-act]"); if (!b || !state.current) return;
