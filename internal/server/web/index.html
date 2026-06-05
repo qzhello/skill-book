@@ -93,6 +93,17 @@
       <button id="reveal" class="icon-btn" title="在 Finder 中打开">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
       </button>
+      <div class="font-ctl">
+        <button id="fontBtn" class="icon-btn" title="阅读字体 / 字号"><span class="aa">Aa</span></button>
+        <div id="fontPop" class="font-pop" hidden>
+          <div class="fp-row"><span class="fp-lbl">字号</span>
+            <div class="fp-step"><button data-fs="-" aria-label="减小">−</button><span id="fsVal">15</span><button data-fs="+" aria-label="增大">＋</button></div>
+          </div>
+          <div class="fp-row"><span class="fp-lbl">字体</span>
+            <div class="fp-fonts"><button data-ff="sans">默认</button><button data-ff="serif">衬线</button><button data-ff="mono">等宽</button></div>
+          </div>
+        </div>
+      </div>
       <button id="aiOptimize" class="btn btn-ai btn-sm" title="用 AI 优化这份 skill">
         <svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
         <span class="btn-label">AI 优化</span>

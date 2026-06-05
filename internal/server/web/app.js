@@ -18,6 +18,7 @@ const el = {
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"), splitGutter: $("#splitGutter"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
+  fontBtn: $("#fontBtn"), fontPop: $("#fontPop"), fsVal: $("#fsVal"),
   save: $("#save"), dirty: $("#dirty"),
   groupsModal: $("#groupsModal"), groupsTitle: $("#groupsTitle"), groupsSub: $("#groupsSub"),
   groupsBody: $("#groupsBody"), groupsSel: $("#groupsSel"),
@@ -63,6 +64,7 @@ const state = {
   collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
   diffMode: "ai", pendingUpdate: null,
   groupKind: "dup", groupSel: new Set(),
+  readerSize: 15, readerFont: "sans",
 };
 
 const LS = {
@@ -590,6 +592,26 @@ function toggleFull() {
   if (state.editor) setTimeout(() => state.editor.refresh(), 210);
 }
 
+/* ---------- 阅读字体 / 字号 ---------- */
+const READER_MIN = 12, READER_MAX = 26;
+const READER_FONTS = { sans: "var(--font)", serif: 'Georgia,"Songti SC","STSong",serif', mono: "var(--mono)" };
+function loadReaderPrefs() {
+  try {
+    const s = parseInt(localStorage.getItem("sb.readerSize"), 10);
+    if (s >= READER_MIN && s <= READER_MAX) state.readerSize = s;
+    const f = localStorage.getItem("sb.readerFont");
+    if (READER_FONTS[f]) state.readerFont = f;
+  } catch { /* ignore */ }
+}
+function applyReader() {
+  el.sheet.style.setProperty("--reader-size", state.readerSize + "px");
+  el.sheet.style.setProperty("--reader-font", READER_FONTS[state.readerFont]);
+  el.fsVal.textContent = state.readerSize;
+  el.fontPop.querySelectorAll("[data-ff]").forEach((b) => b.classList.toggle("active", b.dataset.ff === state.readerFont));
+  try { localStorage.setItem("sb.readerSize", state.readerSize); localStorage.setItem("sb.readerFont", state.readerFont); } catch { /* ignore */ }
+  if (state.editor) state.editor.refresh();
+}
+
 /* ---------- source link ---------- */
 const KIND_LABEL = { github_repo: "GitHub 仓库", github_file: "GitHub 文件", local_path: "本地目录", manual: "手动", unknown: "未知" };
 const SYNC_LABEL = { none: "不同步", check_only: "仅检查更新", manual_update: "手动更新" };
@@ -1075,6 +1097,19 @@ el.tree.addEventListener("click", (e) => {
 el.scan.addEventListener("click", doScan);
 el.sidebarToggle.addEventListener("click", toggleFull);
 el.save.addEventListener("click", doSave);
+// 阅读字体/字号面板
+el.fontBtn.addEventListener("click", (e) => { e.stopPropagation(); el.fontPop.hidden = !el.fontPop.hidden; });
+el.fontPop.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const fs = e.target.closest("[data-fs]");
+  if (fs) {
+    state.readerSize = Math.max(READER_MIN, Math.min(READER_MAX, state.readerSize + (fs.dataset.fs === "+" ? 1 : -1)));
+    applyReader(); return;
+  }
+  const ff = e.target.closest("[data-ff]");
+  if (ff) { state.readerFont = ff.dataset.ff; applyReader(); }
+});
+document.addEventListener("click", () => { if (!el.fontPop.hidden) el.fontPop.hidden = true; });
 el.reveal.addEventListener("click", doReveal);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
@@ -1180,6 +1215,8 @@ function buildSky() {
 /* ---------- boot ---------- */
 (async function boot() {
   buildSky();
+  loadReaderPrefs();
+  applyReader();
   try { await loadAll(); } catch { /* not scanned yet */ }
   probeAI();
   render(); el.q.focus();
