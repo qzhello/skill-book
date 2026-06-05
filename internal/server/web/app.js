@@ -10,8 +10,12 @@ const el = {
   scrim: $("#scrim"), sheet: $("#sheet"), sheetName: $("#sheetName"),
   sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"),
+  binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetFull: $("#sheetFull"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"),
   save: $("#save"), dirty: $("#dirty"),
+  groupsModal: $("#groupsModal"), groupsTitle: $("#groupsTitle"), groupsSub: $("#groupsSub"),
+  groupsBody: $("#groupsBody"), groupsSel: $("#groupsSel"),
+  grpCompare: $("#grpCompare"), grpLocate: $("#grpLocate"), grpTrash: $("#grpTrash"),
   modalScrim: $("#modalScrim"),
   settingsModal: $("#settingsModal"), cfgProvider: $("#cfgProvider"), cfgBaseURL: $("#cfgBaseURL"),
   cfgModel: $("#cfgModel"), cfgKey: $("#cfgKey"), keyHint: $("#keyHint"),
@@ -19,6 +23,7 @@ const el = {
   newModal: $("#newModal"), newName: $("#newName"), newRecipe: $("#newRecipe"),
   newBrief: $("#newBrief"), newAiHint: $("#newAiHint"), newStatus: $("#newStatus"), newCreate: $("#newCreate"),
   diffModal: $("#diffModal"), diffOld: $("#diffOld"), diffNew: $("#diffNew"),
+  diffOldLabel: $("#diffOldLabel"), diffNewLabel: $("#diffNewLabel"),
   diffApply: $("#diffApply"), diffDiscard: $("#diffDiscard"),
   toasts: $("#toasts"),
 };
@@ -31,6 +36,8 @@ const state = {
   all: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
   scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false,
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
+  files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
+  groupKind: "dup", groupSel: new Set(),
 };
 
 const LS = {
@@ -77,6 +84,11 @@ const API = {
   create: (name, brief, recipe) => fetch("/api/ai/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, brief, recipe }) }),
   newSkill: (name, content) => fetch("/api/skills/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, content }) }),
   reveal: (path) => fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
+  files: (id) => fetch("/api/skills/" + id + "/files").then(J),
+  readFile: (path) => fetch("/api/file?path=" + encodeURIComponent(path)).then(J),
+  putFile: (path, content) => fetch("/api/file", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) }),
+  trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
+  groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
 };
 
 /* ---------- data load ---------- */
@@ -222,8 +234,10 @@ function splitFrontmatter(md) {
   if (!m) return { fm: null, body: md || "" };
   return { fm: m[1], body: (md || "").slice(m[0].length) };
 }
+const isMd = (p) => /\.md$/i.test(p || "");
 function renderPreview() {
-  const md = state.editor ? state.editor.getValue() : (state.current ? state.current.body : "");
+  const md = state.editor ? state.editor.getValue() : "";
+  if (!isMd(state.filePath)) { el.preview.innerHTML = `<pre>${esc(md)}</pre>`; return; }
   const { fm, body } = splitFrontmatter(md);
   let html = "";
   if (fm) {
@@ -236,6 +250,7 @@ function renderPreview() {
   el.preview.innerHTML = html;
 }
 function setMode(m) {
+  if (state.fileBinary) return;
   state.mode = m;
   el.modeSeg.querySelectorAll(".seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.mode === m));
   if (m === "edit") {
@@ -244,6 +259,40 @@ function setMode(m) {
   } else {
     el.editorWrap.hidden = true; el.preview.hidden = false; renderPreview();
   }
+}
+const FILE_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+async function loadFiles(id) {
+  try { const d = await API.files(id); state.files = d.files || []; }
+  catch { state.files = []; }
+  renderTree();
+}
+function renderTree() {
+  el.fileTree.innerHTML = state.files.map((f) => {
+    const depth = (f.rel.match(/\//g) || []).length;
+    const pad = `style="padding-left:${8 + depth * 12}px"`;
+    const base = f.rel.split("/").pop();
+    if (f.dir) return `<div class="ft-row dir" ${pad}>${esc(base)}</div>`;
+    const active = f.abs === state.filePath ? " active" : "";
+    return `<div class="ft-row${active}" ${pad} data-abs="${esc(f.abs)}" title="${esc(f.rel)}">${FILE_SVG}<span>${esc(base)}</span></div>`;
+  }).join("");
+}
+async function openFile(abs, mode) {
+  if (!el.dirty.hidden && state.filePath && state.filePath !== abs &&
+      !confirm("当前文件有未保存修改，切换将丢失。确定切换？")) return;
+  let f;
+  try { f = await API.readFile(abs); } catch { toast("读取文件失败", "err"); return; }
+  if (f.error) { toast("读取失败：" + f.error, "err"); return; }
+  state.filePath = f.abs || abs; state.fileBinary = !!f.binary;
+  renderTree();
+  const segBtns = el.modeSeg.querySelectorAll(".seg-btn");
+  if (f.binary) { el.binaryNote.hidden = false; el.preview.hidden = true; el.editorWrap.hidden = true; segBtns.forEach((b) => (b.disabled = true)); return; }
+  el.binaryNote.hidden = true; segBtns.forEach((b) => (b.disabled = false));
+  ensureEditor();
+  state.baseline = f.content || "";
+  state.editor.setValue(f.content || "");
+  state.editor.setOption("mode", isMd(abs) ? "markdown" : "text/plain");
+  el.dirty.hidden = true;
+  setMode(mode || state.mode || "view");
 }
 async function openDetail(id, fromSearch) {
   const s = await API.get(id);
@@ -257,9 +306,8 @@ async function openDetail(id, fromSearch) {
   el.scrim.hidden = false; el.sheet.hidden = false; el.sheet.setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => { el.scrim.classList.add("show"); el.sheet.classList.add("show"); });
   ensureEditor();
-  state.baseline = s.body || "";
-  state.editor.setValue(s.body || "");
-  setMode("view");
+  await loadFiles(id);
+  await openFile(s.file_path, "view");
   const recents = LS.recents().filter((r) => r.id !== id);
   recents.unshift({ id, name: s.name, description: s.description });
   LS.setRecents(recents);
@@ -268,30 +316,43 @@ async function openDetail(id, fromSearch) {
 function closeSheet() {
   el.scrim.classList.remove("show"); el.sheet.classList.remove("show"); el.sheet.setAttribute("aria-hidden", "true");
   setTimeout(() => { el.scrim.hidden = true; el.sheet.hidden = true; }, 260);
-  state.current = null;
+  state.current = null; state.full = false; el.sheet.classList.remove("full");
 }
 async function doSave() {
-  if (!state.current) return;
+  if (!state.current || state.fileBinary || !state.filePath) return;
   el.save.disabled = true;
   try {
-    const res = await API.save(state.current.id, state.editor.getValue());
-    if (res.ok) { state.baseline = state.editor.getValue(); el.dirty.hidden = true; toast("已保存"); await loadAll(); }
-    else toast("保存失败", "err");
+    const res = await API.putFile(state.filePath, state.editor.getValue());
+    if (res.ok) {
+      const d = await res.json().catch(() => ({}));
+      state.baseline = state.editor.getValue(); el.dirty.hidden = true; toast("已保存");
+      if (d.reindexed) await loadAll();
+    } else toast("保存失败", "err");
   } catch { toast("保存失败", "err"); }
   finally { el.save.disabled = false; }
 }
 async function doReveal() {
-  if (!state.current) return;
-  const res = await API.reveal(state.current.file_path);
+  const path = state.filePath || (state.current && state.current.file_path);
+  if (!path) return;
+  const res = await API.reveal(path);
   if (res.ok) toast("已在 Finder 中打开");
   else if (res.status === 501) toast("当前系统不支持 Finder 打开", "err");
   else toast("打开失败", "err");
 }
+function toggleFull() { state.full = !state.full; el.sheet.classList.toggle("full", state.full); if (state.editor) setTimeout(() => state.editor.refresh(), 50); }
 function doFind() { setMode("edit"); setTimeout(() => state.editor.execCommand("find"), 60); }
 
 /* ---------- AI optimize + diff ---------- */
+async function probeAI() {
+  try { const c = await API.config(); state.aiConfigured = !!c.hasKey; }
+  catch { state.aiConfigured = false; }
+  el.aiOptimize.title = state.aiConfigured ? "用 AI 优化这份 skill" : "未配置 AI —— 点此前往设置填 API key 与模型";
+  el.aiOptimize.classList.toggle("unconfigured", !state.aiConfigured);
+}
 async function doOptimize() {
   if (!state.current) return;
+  if (!state.aiConfigured) { toast("请先在设置里配置 API key 和模型", "err"); openModal(el.settingsModal); await fillSettings(); return; }
+  if (!isMd(state.filePath)) { toast("AI 优化仅支持 markdown 文件", "err"); return; }
   el.aiOptimize.disabled = true; el.aiOptimize.classList.add("loading");
   try {
     const res = await API.optimize(state.editor.getValue());
@@ -320,14 +381,81 @@ function lineDiff(oldT, newT) {
   while (j < n) newH.push(line("add", b[j++]));
   return { oldHtml: oldH.join("\n"), newHtml: newH.join("\n") };
 }
-function showDiff(oldT, newT) {
+function showDiff(oldT, newT, opts) {
+  opts = opts || {};
   const { oldHtml, newHtml } = lineDiff(oldT, newT);
   el.diffOld.innerHTML = oldHtml; el.diffNew.innerHTML = newHtml;
+  el.diffOldLabel.textContent = opts.oldLabel || "原文";
+  el.diffNewLabel.textContent = opts.newLabel || "AI 优化稿";
+  el.diffApply.hidden = opts.allowApply === false;
+  el.diffDiscard.textContent = opts.allowApply === false ? "关闭" : "放弃";
   openModal(el.diffModal);
 }
 function applyDiff() {
   if (state.aiResult) { ensureEditor(); state.editor.setValue(state.aiResult); setMode("edit"); el.dirty.hidden = state.editor.getValue() === state.baseline; toast("已应用 AI 稿，记得保存"); }
   closeModal();
+}
+
+/* ---------- dup/conflict groups ---------- */
+function fmtSize(n) { if (n < 1024) return n + " B"; if (n < 1048576) return (n / 1024).toFixed(1) + " KB"; return (n / 1048576).toFixed(1) + " MB"; }
+function fmtTime(u) { if (!u) return ""; try { return new Date(u * 1000).toLocaleDateString(); } catch { return ""; } }
+async function openGroups(kind) {
+  state.groupKind = kind; state.groupSel = new Set();
+  el.groupsTitle.textContent = kind === "conflict" ? "冲突管理" : "重复管理";
+  el.grpCompare.hidden = kind !== "conflict";
+  el.groupsBody.innerHTML = '<div class="no-results">加载中…</div>';
+  openModal(el.groupsModal);
+  try { const d = await API.groups(kind); state.groupData = d.groups || []; renderGroups(); }
+  catch { el.groupsBody.innerHTML = '<div class="no-results">加载失败</div>'; }
+}
+function renderGroups() {
+  const groups = state.groupData || [];
+  el.groupsSub.textContent = groups.length
+    ? `${groups.length} 组同名${state.groupKind === "conflict" ? "（内容不同）" : "（内容一致）"}，共 ${groups.reduce((a, g) => a + g.copies.length, 0)} 个副本`
+    : "没有发现" + (state.groupKind === "conflict" ? "冲突" : "重复");
+  el.groupsBody.innerHTML = groups.map((g) => {
+    const rows = g.copies.map((c) =>
+      `<div class="copy-row" data-path="${esc(c.file_path)}" data-dir="${esc(c.dir)}" data-id="${esc(c.id)}">
+        <input type="checkbox" ${state.groupSel.has(c.file_path) ? "checked" : ""} />
+        <div class="copy-main"><div class="copy-name"><span class="badge ${c.source}">${CAT_LABEL[c.source] || c.source}</span>${esc(g.name)}<span class="open-link" data-open="${esc(c.id)}">打开 ›</span></div>
+          <div class="copy-path">${esc(c.file_path)}</div></div>
+        <div class="copy-meta">${fmtSize(c.size || 0)} · ${fmtTime(c.mtime)}</div></div>`).join("");
+    return `<div class="group-card"><div class="group-head"><span class="gname">${esc(g.name)}</span><span class="gcount">${g.copies.length} 份</span></div>${rows}</div>`;
+  }).join("") || '<div class="no-results">没有数据</div>';
+  updateGroupSel();
+}
+function updateGroupSel() {
+  const n = state.groupSel.size;
+  el.groupsSel.textContent = n ? `已选 ${n}` : "";
+  el.grpLocate.disabled = n === 0; el.grpTrash.disabled = n === 0;
+  el.grpCompare.disabled = !(state.groupKind === "conflict" && n === 2);
+}
+async function grpLocate() {
+  for (const p of state.groupSel) await API.reveal(p);
+  toast("已在 Finder 定位 " + state.groupSel.size + " 项");
+}
+async function grpTrash() {
+  const dirs = [];
+  el.groupsBody.querySelectorAll(".copy-row").forEach((row) => { if (state.groupSel.has(row.dataset.path)) dirs.push(row.dataset.dir); });
+  if (!dirs.length) return;
+  if (!confirm(`将 ${dirs.length} 个 skill 目录移到废纸篓（可在访达恢复）。确定？`)) return;
+  el.grpTrash.disabled = true;
+  try {
+    const res = await API.trash(dirs);
+    if (res.status === 501) { toast("仅 macOS 支持移到废纸篓", "err"); return; }
+    const d = await res.json();
+    toast(`已移到废纸篓 ${(d.trashed || []).length} 项` + ((d.failed || []).length ? `，${d.failed.length} 失败` : ""));
+    state.groupSel = new Set(); await loadAll();
+    const g = await API.groups(state.groupKind); state.groupData = g.groups || []; renderGroups();
+  } catch { toast("操作失败", "err"); }
+  finally { el.grpTrash.disabled = false; }
+}
+async function grpCompare() {
+  const ids = [];
+  el.groupsBody.querySelectorAll(".copy-row").forEach((row) => { if (state.groupSel.has(row.dataset.path)) ids.push(row.dataset.id); });
+  if (ids.length !== 2) return;
+  const [a, b] = await Promise.all([API.get(ids[0]), API.get(ids[1])]);
+  showDiff(a.body || "", b.body || "", { oldLabel: "副本 A", newLabel: "副本 B", allowApply: false });
 }
 
 /* ---------- settings ---------- */
@@ -347,7 +475,7 @@ function readSettingsForm() {
 }
 async function saveSettings() {
   el.cfgSave.disabled = true;
-  try { const r = await API.putConfig(readSettingsForm()); if (r.ok) { toast("已保存设置"); closeModal(); } else toast("保存失败", "err"); }
+  try { const r = await API.putConfig(readSettingsForm()); if (r.ok) { toast("已保存设置"); await probeAI(); closeModal(); } else toast("保存失败", "err"); }
   catch { toast("保存失败", "err"); } finally { el.cfgSave.disabled = false; }
 }
 async function testConnection() {
@@ -361,6 +489,7 @@ async function testConnection() {
     el.cfgStatus.textContent = d.ok ? "连接成功 ✓" : ("失败：" + (d.message || ""));
     el.cfgStatus.className = "cfg-status " + (d.ok ? "ok" : "err");
     el.keyHint.textContent = "（已配置，可留空）";
+    await probeAI();
   } catch { el.cfgStatus.textContent = "测试失败"; el.cfgStatus.className = "cfg-status err"; }
 }
 
@@ -441,7 +570,9 @@ el.clear.addEventListener("click", () => { state.query = ""; el.q.value = ""; el
 
 el.chips.addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
-  state.cat = b.dataset.cat; state.cursor = -1; renderChips(); render();
+  const cat = b.dataset.cat;
+  if (cat === "dup" || cat === "conflict") { openGroups(cat); return; }
+  state.cat = cat; state.cursor = -1; renderChips(); render();
 });
 el.overview.addEventListener("click", (e) => {
   const card = e.target.closest(".recent-card"); if (card) return openDetail(card.dataset.id, false);
@@ -469,7 +600,21 @@ el.scrim.addEventListener("click", closeSheet);
 el.reveal.addEventListener("click", doReveal);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
-el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b) setMode(b.dataset.mode); });
+el.modeSeg.addEventListener("click", (e) => { const b = e.target.closest(".seg-btn"); if (b && !b.disabled) setMode(b.dataset.mode); });
+el.sheetFull.addEventListener("click", toggleFull);
+el.fileTree.addEventListener("click", (e) => { const row = e.target.closest(".ft-row[data-abs]"); if (row) openFile(row.dataset.abs, state.mode); });
+
+el.groupsBody.addEventListener("click", (e) => {
+  const open = e.target.closest(".open-link"); if (open) { closeModal(); openDetail(open.dataset.open, false); return; }
+  const row = e.target.closest(".copy-row"); if (!row) return;
+  const path = row.dataset.path;
+  if (state.groupSel.has(path)) state.groupSel.delete(path); else state.groupSel.add(path);
+  const cb = row.querySelector("input[type=checkbox]"); if (cb) cb.checked = state.groupSel.has(path);
+  updateGroupSel();
+});
+el.grpLocate.addEventListener("click", grpLocate);
+el.grpTrash.addEventListener("click", grpTrash);
+el.grpCompare.addEventListener("click", grpCompare);
 
 el.settings.addEventListener("click", async () => { openModal(el.settingsModal); await fillSettings(); });
 el.cfgSave.addEventListener("click", saveSettings);
@@ -492,5 +637,6 @@ document.addEventListener("keydown", (e) => {
 /* ---------- boot ---------- */
 (async function boot() {
   try { await loadAll(); } catch { /* not scanned yet */ }
+  probeAI();
   render(); el.q.focus();
 })();
