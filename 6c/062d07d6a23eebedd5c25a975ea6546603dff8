@@ -1,0 +1,35 @@
+README.md
+  ai_agent 21
+internal/server/backup_routes.go
+  ai_agent 1-145
+internal/server/server.go
+  ai_agent 14,36-38,80-85
+internal/backup/config_test.go
+  ai_agent 1-66
+internal/backup/config.go
+  ai_agent 1-95
+internal/backup/service.go
+  ai_agent 1-237
+internal/backup/service_test.go
+  ai_agent 1-163
+internal/backup/mirror.go
+  ai_agent 1-82
+internal/server/backup_routes_test.go
+  ai_agent 1-91
+internal/server/web/index.html
+  ai_agent 142,243-261
+README.en.md
+  ai_agent 21
+internal/server/web/app.js
+  ai_agent 13-16,113-117,572-622,952-955
+internal/backup/mirror_test.go
+  ai_agent 1-123
+internal/server/web/style.css
+  ai_agent 357-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "6c062d07d6a23eebedd5c25a975ea6546603dff8",
+  "prompts": {}
+}
