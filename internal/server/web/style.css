@@ -14,6 +14,9 @@
   --mono:'JetBrains Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box}
+/* 关键：.sheet/.modal/.binary-note 用了 display:flex/grid，会压过 [hidden] 的 display:none，
+   导致透明遮罩一直存在并拦截点击。强制 [hidden] 真正隐藏。 */
+[hidden]{display:none!important}
 html,body{height:100%}
 body{
   margin:0;font-family:var(--font);font-size:14px;line-height:1.55;color:var(--text);
