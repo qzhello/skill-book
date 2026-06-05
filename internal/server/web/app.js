@@ -2,12 +2,10 @@
 const $ = (s) => document.querySelector(s);
 const el = {
   scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"),
-  q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"), stage: $("#stage"), recentTags: $("#recentTags"),
+  q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"),
   count: $("#count"), chips: $("#chips"),
-  overview: $("#overview"), emptyHero: $("#emptyHero"),
-  resultsView: $("#resultsView"), resultsMeta: $("#resultsMeta"),
-  viewport: $("#viewport"), sizer: $("#sizer"), window: $("#window"),
-  scrim: $("#scrim"), sheet: $("#sheet"), sheetName: $("#sheetName"),
+  workbench: $("#workbench"), sidebar: $("#sidebar"), tree: $("#tree"), emptyHero: $("#emptyHero"),
+  detailEmpty: $("#detailEmpty"), sheet: $("#sheet"), sheetName: $("#sheetName"),
   sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
   sourceChip: $("#sourceChip"), sourceModal: $("#sourceModal"), sourceModalBody: $("#sourceModalBody"),
   editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
@@ -38,7 +36,6 @@ const el = {
   toasts: $("#toasts"),
 };
 
-const ROW_H = 60, OVERSCAN = 6;
 const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
 const PLATFORM_LABEL = { claude: "Claude", codex: "Codex" };
 const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", claude: "Claude", codex: "Codex", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
@@ -60,7 +57,7 @@ const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展�
 
 const state = {
   all: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
-  scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false, browseAll: false,
+  scanned: false, query: "", cat: "all", view: [], cursor: -1, treeCollapsed: new Set(),
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
   collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
@@ -206,101 +203,72 @@ function renderChips() {
 /* ---------- main render switch ---------- */
 function render() {
   compute();
-  const showOverview = state.scanned && !state.query.trim() && state.cat === "all" && !state.browseAll;
-  el.stage.classList.toggle("compact", state.scanned && !showOverview);
-  el.stage.classList.toggle("home", showOverview); // 首页：搜索框居中聚焦
-  renderRecentTags(showOverview); // 最近搜索：搜索框下方小 tag，仅首页显示
-  el.overview.hidden = !(showOverview || !state.scanned);
-  el.resultsView.hidden = !state.scanned || showOverview;
-  if (!state.scanned) { renderEmptyHero(); return; }
-  if (showOverview) { renderOverview(); return; }
-  renderResults();
-}
-function renderEmptyHero() { el.emptyHero.hidden = false; el.overview.innerHTML = ""; el.overview.appendChild(el.emptyHero); }
-
-// 最近搜索小 tag：紧贴搜索框下方，仅首页(home)显示。
-function renderRecentTags(show) {
-  const hist = show ? LS.history() : [];
-  if (!hist.length) { el.recentTags.hidden = true; el.recentTags.innerHTML = ""; return; }
-  el.recentTags.hidden = false;
-  el.recentTags.innerHTML = `<span class="rtag-label">最近</span>` + hist.map((h) =>
-    `<button class="rtag" data-hist="${esc(h)}"><svg class="rt-ico" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>${esc(h)}</button>`).join("") +
-    `<button class="rtag rtag-clear" data-act="clearhist" title="清除最近搜索">清除</button>`;
-}
-
-/* ---------- overview ---------- */
-function renderOverview() {
+  if (!state.scanned) {
+    el.tree.innerHTML = "";
+    el.emptyHero.hidden = false;
+    el.tree.appendChild(el.emptyHero);
+    return;
+  }
   el.emptyHero.hidden = true;
-  const recents = LS.recents().filter((r) => state.all.some((s) => s.id === r.id));
-  const counts = { user: 0, project: 0, plugin: 0 };
-  let dup = 0, conflict = 0;
-  for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.dup) dup++; if (s.conflict) conflict++; }
-  const total = state.all.length;
-  const linked = state.linkedSources.size;
-  let html = "";
+  renderSidebarTree();
+}
 
-  // 统计带：总数 / 有来源 / 重复 / 冲突，填充首屏并提供快捷筛选
-  const stat = (cat, label, val, tone, clickable) =>
-    `<div class="stat-tile${clickable ? " clickable" : ""}"${clickable ? ` data-cat="${cat}"` : ""}>
-      <div class="stat-val${tone ? " " + tone : ""}">${val}</div><div class="stat-label">${label}</div></div>`;
-  html += `<div class="ov-section"><div class="ov-stats">
-    ${stat("all", "skill 总数", total, "", false)}
-    ${stat("linked", "已设来源", linked, linked ? "accent" : "", linked > 0)}
-    ${stat("dup", "重复", dup, dup ? "warn" : "", dup > 0)}
-    ${stat("conflict", "命名冲突", conflict, conflict ? "danger" : "", conflict > 0)}
-  </div></div>`;
+/* ---------- 左侧平台→层级→skill 可折叠树 ---------- */
+const PLAT_ORDER = ["claude", "codex"];
+const SRC_ORDER = ["user", "project", "plugin"];
+const CHEV = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 
-  if (recents.length) {
-    html += `<div class="ov-section"><div class="ov-head">最近打开</div>
-      <div class="recent-grid">${recents.map((r) =>
-        `<div class="recent-card" data-id="${r.id}"><div class="rc-name">${esc(r.name)}</div><div class="rc-desc">${esc(r.description || "—")}</div></div>`).join("")}</div></div>`;
+function renderSidebarTree() {
+  const items = state.view;
+  if (!items.length) { el.tree.innerHTML = `<div class="tree-empty">没有匹配的 skill</div>`; return; }
+  const q = state.query.trim();
+  // 按 平台 → 层级 分组
+  const byPlat = {};
+  for (const s of items) {
+    const p = s.platform || "claude";
+    (byPlat[p] = byPlat[p] || {});
+    (byPlat[p][s.source] = byPlat[p][s.source] || []).push(s);
   }
-  const catIcon = {
-    user: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-    project: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>',
-    plugin: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>',
-  };
-  const cats = CAT_ORDER.filter((k) => (counts[k] || 0) > 0);
-  if (cats.length) {
-    html += `<div class="ov-section"><div class="ov-head">按来源分类</div>
-      <div class="cat-grid">${cats.map((k) =>
-        `<div class="cat-card" data-cat="${k}"><div class="cat-ico ${k}">${catIcon[k]}</div>
-          <div class="cat-meta"><div class="cat-name">${CAT_LABEL[k]}</div><div class="cat-count">${counts[k]} 个 skill</div></div></div>`).join("")}</div></div>`;
-  }
-  el.overview.innerHTML = html;
-}
-
-/* ---------- results virtual list ---------- */
-function rowHTML(s, idx, animate) {
-  const cls = "row" + (idx === state.cursor ? " cursor" : "") + (animate ? " enter" : "");
-  const delay = animate ? `style="animation-delay:${Math.min(idx, 14) * 26}ms"` : "";
-  const t = s.mtime ? `<span class="row-time" title="更新于 ${esc(fmtTime(s.mtime))}">${esc(relTime(s.mtime))}</span>` : "";
-  return `<div class="${cls}" ${delay} data-idx="${idx}" data-id="${s.id}">
-    <div class="row-main"><div class="row-name">${highlight(s.name, state.query.trim().toLowerCase())}
-      ${platformBadge(s)}<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flagBadge(s)}</div>
-      <div class="row-desc">${esc(s.description || "—")}</div></div>${t}</div>`;
-}
-function renderResults() {
-  const n = state.view.length, q = state.query.trim();
-  const scope = state.browseAll && state.cat === "all" && !q ? " · 全部 skill" : (state.cat !== "all" ? ` · ${CHIP_LABEL[state.cat] || state.cat}` : "");
-  el.resultsMeta.innerHTML = n
-    ? `<b>${n}</b> 个结果${q ? ` · 关键词「${esc(q)}」精确优先` : ""}${scope}`
-    : "";
-  el.sizer.style.height = n * ROW_H + "px";
-  el.viewport.scrollTop = 0;
-  if (!n) { el.window.style.transform = "none"; el.window.innerHTML = `<div class="no-results">没有匹配的 skill。<br>试试更短的关键词或切换分类。</div>`; return; }
-  state.justChanged = true; renderWindow();
-}
-function renderWindow() {
-  const n = state.view.length; if (!n) return;
-  const top = el.viewport.scrollTop, h = el.viewport.clientHeight;
-  const start = Math.max(0, Math.floor(top / ROW_H) - OVERSCAN);
-  const end = Math.min(n, Math.ceil((top + h) / ROW_H) + OVERSCAN);
-  const animate = state.justChanged; state.justChanged = false;
-  el.window.style.transform = `translateY(${start * ROW_H}px)`;
   let html = "";
-  for (let i = start; i < end; i++) html += rowHTML(state.view[i], i, animate && i < start + 18);
-  el.window.innerHTML = html;
+  for (const p of PLAT_ORDER) {
+    const subs = byPlat[p]; if (!subs) continue;
+    const total = Object.values(subs).reduce((a, arr) => a + arr.length, 0);
+    const pkey = "plat:" + p;
+    const pOpen = q ? true : !state.treeCollapsed.has(pkey); // 搜索时强制全展开
+    html += `<div class="tree-group">
+      <button class="tree-head lvl0" data-tk="${pkey}">
+        <span class="tw-chev ${pOpen ? "open" : ""}">${CHEV}</span>
+        <span class="plat-dot plat-${p}"></span>
+        <span class="th-name">${PLATFORM_LABEL[p] || p}</span><span class="th-ct">${total}</span></button>`;
+    if (pOpen) {
+      for (const src of SRC_ORDER) {
+        const arr = subs[src]; if (!arr || !arr.length) continue;
+        arr.sort((a, b) => a.name.localeCompare(b.name));
+        const skey = "src:" + p + ":" + src;
+        const sOpen = q ? true : !state.treeCollapsed.has(skey);
+        html += `<button class="tree-head lvl1" data-tk="${skey}">
+          <span class="tw-chev ${sOpen ? "open" : ""}">${CHEV}</span>
+          <span class="th-name">${CAT_LABEL[src] || src}</span><span class="th-ct">${arr.length}</span></button>`;
+        if (sOpen) html += arr.map(treeItem).join("");
+      }
+    }
+    html += `</div>`;
+  }
+  el.tree.innerHTML = html;
+}
+function treeItem(s) {
+  const active = state.current && state.current.id === s.id ? " active" : "";
+  const flag = s.conflict
+    ? '<span class="ti-flag conflict" title="命名冲突">冲突</span>'
+    : (s.dup ? `<span class="ti-flag dup" title="重复 ${s.dupCount} 份">×${s.dupCount}</span>` : "");
+  const t = s.mtime ? `<span class="ti-time" title="更新于 ${esc(fmtTime(s.mtime))}">${esc(relTime(s.mtime))}</span>` : "";
+  return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
+    <span class="ti-name">${highlight(s.name, state.query.trim().toLowerCase())}</span>${flag}${t}</button>`;
+}
+function markActiveTreeItem(id) {
+  el.tree.querySelectorAll(".tree-item.active").forEach((n) => n.classList.remove("active"));
+  const node = el.tree.querySelector(`.tree-item[data-id="${id}"]`);
+  if (node) node.classList.add("active");
 }
 
 /* ---------- detail sheet ---------- */
@@ -419,8 +387,8 @@ async function openDetail(id, fromSearch) {
   el.sheetBadges.innerHTML = `${platformBadge(s)}<span class="badge ${s.source}">${CAT_LABEL[s.source] || s.source}</span>${flag}`;
   el.sheetPath.textContent = s.file_path + (s.mtime ? `   ·   更新于 ${fmtTime(s.mtime)}` : "");
   el.dirty.hidden = true;
-  el.scrim.hidden = false; el.sheet.hidden = false; el.sheet.setAttribute("aria-hidden", "false");
-  requestAnimationFrame(() => { el.scrim.classList.add("show"); el.sheet.classList.add("show"); });
+  el.detailEmpty.hidden = true; el.sheet.hidden = false; el.sheet.setAttribute("aria-hidden", "false");
+  markActiveTreeItem(id);
   ensureEditor();
   await loadFiles(id);
   await openFile(s.file_path, "view");
@@ -431,10 +399,10 @@ async function openDetail(id, fromSearch) {
   if (fromSearch && state.query.trim()) pushHistory(state.query.trim());
 }
 function closeSheet() {
-  el.scrim.classList.remove("show"); el.sheet.classList.remove("show"); el.sheet.setAttribute("aria-hidden", "true");
-  setTimeout(() => { el.scrim.hidden = true; el.sheet.hidden = true; }, 260);
-  state.current = null; state.full = false; el.sheet.classList.remove("full");
-  if (!el.overview.hidden) renderOverview(); // 回到首页时刷新“最近打开”
+  el.sheet.hidden = true; el.sheet.setAttribute("aria-hidden", "true");
+  el.detailEmpty.hidden = false;
+  state.current = null;
+  el.tree.querySelectorAll(".tree-item.active").forEach((n) => n.classList.remove("active"));
 }
 async function doSave() {
   if (!state.current || state.fileBinary || !state.filePath) return;
@@ -476,10 +444,8 @@ async function doReveal() {
   else toast("打开失败", "err");
 }
 function toggleFull() {
-  state.full = !state.full;
-  el.sheet.classList.toggle("full", state.full);
-  // 宽度过渡进行中先刷一次保持跟手，过渡结束后再刷一次重算换行
-  if (state.editor) { state.editor.refresh(); el.sheet.addEventListener("transitionend", function once(e) { if (e.propertyName === "width") { state.editor.refresh(); el.sheet.removeEventListener("transitionend", once); } }); }
+  el.workbench.classList.toggle("sidebar-collapsed");
+  if (state.editor) setTimeout(() => state.editor.refresh(), 210);
 }
 
 /* ---------- source link ---------- */
@@ -931,11 +897,11 @@ el.q.addEventListener("input", (e) => {
 el.q.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && state.view.length) {
     e.preventDefault();
-    const idx = state.cursor >= 0 ? state.cursor : 0;
     if (state.query.trim()) pushHistory(state.query.trim());
-    openDetail(state.view[idx].id, true);
-  } else if (e.key === "ArrowDown") { e.preventDefault(); moveCursor(1); }
-  else if (e.key === "ArrowUp") { e.preventDefault(); moveCursor(-1); }
+    // 打开当前结果中名称排序最靠前的一条
+    const first = state.view.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+    if (first) openDetail(first.id, true);
+  }
 });
 el.q.addEventListener("focus", () => el.searchWrap.classList.add("focused"));
 el.q.addEventListener("blur", () => el.searchWrap.classList.remove("focused"));
@@ -945,49 +911,28 @@ el.chips.addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
   const cat = b.dataset.cat;
   if (cat === "dup" || cat === "conflict") { openGroups(cat); return; }
-  state.browseAll = false; state.cat = cat; state.cursor = -1; renderChips(); render();
+  state.cat = cat; renderChips(); render();
 });
-// 右上角计数 pill：点它平铺查看全部 skill（完整列表，无需搜索词）。
-el.count.addEventListener("click", () => {
-  if (!state.scanned) return;
-  state.browseAll = true; state.cat = "all"; state.query = ""; el.q.value = ""; el.clear.hidden = true; state.cursor = -1;
+// 右上角计数 pill / 左上角 logo：清空搜索与筛选，回到全部。
+function resetToAll() {
+  state.cat = "all"; state.query = ""; el.q.value = ""; el.clear.hidden = true;
   renderChips(); render();
-  el.viewport.focus();
-});
-// 左上角 logo：回首页概览。
-const brandEl = document.querySelector(".brand");
-if (brandEl) brandEl.addEventListener("click", () => {
-  state.browseAll = false; state.cat = "all"; state.query = ""; el.q.value = ""; el.clear.hidden = true; state.cursor = -1;
-  renderChips(); render();
-});
-el.overview.addEventListener("click", (e) => {
-  const card = e.target.closest(".recent-card"); if (card) return openDetail(card.dataset.id, false);
-  const cat = e.target.closest(".cat-card"); if (cat) { state.cat = cat.dataset.cat; renderChips(); render(); return; }
-  const tile = e.target.closest(".stat-tile.clickable"); if (tile) { const c = tile.dataset.cat; if (c === "dup" || c === "conflict") { openGroups(c); return; } state.cat = c; state.cursor = -1; renderChips(); render(); return; }
-  const hist = e.target.closest(".hist-tag"); if (hist) { state.query = hist.dataset.hist; el.q.value = state.query; el.clear.hidden = false; render(); el.q.focus(); return; }
-  const clr = e.target.closest('[data-act="clearhist"]'); if (clr) { e.stopPropagation(); LS.setHistory([]); renderOverview(); }
-});
-el.recentTags.addEventListener("click", (e) => {
-  const clr = e.target.closest('[data-act="clearhist"]'); if (clr) { LS.setHistory([]); renderRecentTags(true); return; }
-  const tag = e.target.closest(".rtag"); if (tag && tag.dataset.hist) { state.query = tag.dataset.hist; el.q.value = state.query; el.clear.hidden = false; render(); el.q.focus(); }
-});
-el.window.addEventListener("click", (e) => { const row = e.target.closest(".row"); if (row) openDetail(row.dataset.id, !!state.query.trim()); });
-el.viewport.addEventListener("scroll", () => requestAnimationFrame(renderWindow), { passive: true });
-window.addEventListener("resize", () => { if (!el.resultsView.hidden) renderWindow(); });
-
-function moveCursor(d) {
-  const n = state.view.length; if (!n) return;
-  state.cursor = (state.cursor + d + n) % n; state.justChanged = false;
-  const y = state.cursor * ROW_H;
-  if (y < el.viewport.scrollTop) el.viewport.scrollTop = y;
-  else if (y + ROW_H > el.viewport.scrollTop + el.viewport.clientHeight) el.viewport.scrollTop = y + ROW_H - el.viewport.clientHeight;
-  renderWindow();
 }
+el.count.addEventListener("click", () => { if (state.scanned) resetToAll(); });
+const brandEl = document.querySelector(".brand");
+if (brandEl) brandEl.addEventListener("click", resetToAll);
+
+// 左侧树：点 group head 折叠/展开，点 skill 项打开详情。
+el.tree.addEventListener("click", (e) => {
+  const head = e.target.closest(".tree-head[data-tk]");
+  if (head) { const k = head.dataset.tk; if (state.treeCollapsed.has(k)) state.treeCollapsed.delete(k); else state.treeCollapsed.add(k); renderSidebarTree(); return; }
+  const item = e.target.closest(".tree-item[data-id]");
+  if (item) openDetail(item.dataset.id, !!state.query.trim());
+});
 
 el.scan.addEventListener("click", doScan);
 el.save.addEventListener("click", doSave);
 el.sheetClose.addEventListener("click", closeSheet);
-el.scrim.addEventListener("click", closeSheet);
 el.reveal.addEventListener("click", doReveal);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
