@@ -38,7 +38,7 @@ const el = {
 const ROW_H = 60, OVERSCAN = 6;
 const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
 const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
-const CAT_ORDER = ["user", "project", "plugin"];
+const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展示
 
 const state = {
   all: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
@@ -180,6 +180,7 @@ function render() {
   compute();
   const showOverview = state.scanned && !state.query.trim() && state.cat === "all";
   el.stage.classList.toggle("compact", state.scanned && !showOverview);
+  el.stage.classList.toggle("home", showOverview); // 首页：搜索框居中聚焦
   el.overview.hidden = !(showOverview || !state.scanned);
   el.resultsView.hidden = !state.scanned || showOverview;
   if (!state.scanned) { renderEmptyHero(); return; }
@@ -194,27 +195,47 @@ function renderOverview() {
   const recents = LS.recents().filter((r) => state.all.some((s) => s.id === r.id));
   const history = LS.history();
   const counts = { user: 0, project: 0, plugin: 0 };
-  for (const s of state.all) counts[s.source] = (counts[s.source] || 0) + 1;
+  let dup = 0, conflict = 0;
+  for (const s of state.all) { counts[s.source] = (counts[s.source] || 0) + 1; if (s.dup) dup++; if (s.conflict) conflict++; }
+  const total = state.all.length;
+  const linked = state.linkedSources.size;
   let html = "";
+
+  // 最近搜索：紧贴搜索框下方、标签放大，便于一键重搜
+  if (history.length) {
+    html += `<div class="ov-section ov-recent-search"><div class="ov-head">最近搜索<span class="clear-hist" data-act="clearhist">清除</span></div>
+      <div class="hist-row">${history.map((h) =>
+        `<button class="hist-tag" data-hist="${esc(h)}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>${esc(h)}</button>`).join("")}</div></div>`;
+  }
+
+  // 统计带：总数 / 有来源 / 重复 / 冲突，填充首屏并提供快捷筛选
+  const stat = (cat, label, val, tone, clickable) =>
+    `<div class="stat-tile${clickable ? " clickable" : ""}"${clickable ? ` data-cat="${cat}"` : ""}>
+      <div class="stat-val${tone ? " " + tone : ""}">${val}</div><div class="stat-label">${label}</div></div>`;
+  html += `<div class="ov-section"><div class="ov-stats">
+    ${stat("all", "skill 总数", total, "", false)}
+    ${stat("linked", "已设来源", linked, linked ? "accent" : "", linked > 0)}
+    ${stat("dup", "重复", dup, dup ? "warn" : "", dup > 0)}
+    ${stat("conflict", "命名冲突", conflict, conflict ? "danger" : "", conflict > 0)}
+  </div></div>`;
+
   if (recents.length) {
     html += `<div class="ov-section"><div class="ov-head">最近打开</div>
       <div class="recent-grid">${recents.map((r) =>
         `<div class="recent-card" data-id="${r.id}"><div class="rc-name">${esc(r.name)}</div><div class="rc-desc">${esc(r.description || "—")}</div></div>`).join("")}</div></div>`;
-  }
-  if (history.length) {
-    html += `<div class="ov-section"><div class="ov-head">最近搜索<span class="clear-hist" data-act="clearhist">清除</span></div>
-      <div class="hist-row">${history.map((h) =>
-        `<button class="hist-tag" data-hist="${esc(h)}"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>${esc(h)}</button>`).join("")}</div></div>`;
   }
   const catIcon = {
     user: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     project: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>',
     plugin: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>',
   };
-  html += `<div class="ov-section"><div class="ov-head">按来源分类</div>
-    <div class="cat-grid">${CAT_ORDER.map((k) =>
-      `<div class="cat-card" data-cat="${k}"><div class="cat-ico ${k}">${catIcon[k]}</div>
-        <div class="cat-meta"><div class="cat-name">${CAT_LABEL[k]}</div><div class="cat-count">${counts[k] || 0} 个 skill</div></div></div>`).join("")}</div></div>`;
+  const cats = CAT_ORDER.filter((k) => (counts[k] || 0) > 0);
+  if (cats.length) {
+    html += `<div class="ov-section"><div class="ov-head">按来源分类</div>
+      <div class="cat-grid">${cats.map((k) =>
+        `<div class="cat-card" data-cat="${k}"><div class="cat-ico ${k}">${catIcon[k]}</div>
+          <div class="cat-meta"><div class="cat-name">${CAT_LABEL[k]}</div><div class="cat-count">${counts[k]} 个 skill</div></div></div>`).join("")}</div></div>`;
+  }
   el.overview.innerHTML = html;
 }
 
@@ -403,7 +424,12 @@ async function doReveal() {
   else if (res.status === 501) toast("当前系统不支持 Finder 打开", "err");
   else toast("打开失败", "err");
 }
-function toggleFull() { state.full = !state.full; el.sheet.classList.toggle("full", state.full); if (state.editor) setTimeout(() => state.editor.refresh(), 50); }
+function toggleFull() {
+  state.full = !state.full;
+  el.sheet.classList.toggle("full", state.full);
+  // 宽度过渡进行中先刷一次保持跟手，过渡结束后再刷一次重算换行
+  if (state.editor) { state.editor.refresh(); el.sheet.addEventListener("transitionend", function once(e) { if (e.propertyName === "width") { state.editor.refresh(); el.sheet.removeEventListener("transitionend", once); } }); }
+}
 
 /* ---------- source link ---------- */
 const KIND_LABEL = { github_repo: "GitHub 仓库", github_file: "GitHub 文件", local_path: "本地目录", manual: "手动", unknown: "未知" };
@@ -798,6 +824,7 @@ el.chips.addEventListener("click", (e) => {
 el.overview.addEventListener("click", (e) => {
   const card = e.target.closest(".recent-card"); if (card) return openDetail(card.dataset.id, false);
   const cat = e.target.closest(".cat-card"); if (cat) { state.cat = cat.dataset.cat; renderChips(); render(); return; }
+  const tile = e.target.closest(".stat-tile.clickable"); if (tile) { const c = tile.dataset.cat; if (c === "dup" || c === "conflict") { openGroups(c); return; } state.cat = c; state.cursor = -1; renderChips(); render(); return; }
   const hist = e.target.closest(".hist-tag"); if (hist) { state.query = hist.dataset.hist; el.q.value = state.query; el.clear.hidden = false; render(); el.q.focus(); return; }
   const clr = e.target.closest('[data-act="clearhist"]'); if (clr) { e.stopPropagation(); LS.setHistory([]); renderOverview(); }
 });

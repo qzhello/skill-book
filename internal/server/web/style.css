@@ -2,7 +2,7 @@
 :root{
   --bg:#0b1020; --bg-elev:#111729; --surface:#141b30; --surface-2:#1a2238;
   --line:#243049; --line-soft:#1b2336;
-  --text:#f1f5fb; --text-dim:#aeb9d0; --muted:#6b7894;
+  --text:#f1f5fb; --text-dim:#aeb9d0; --muted:#7b89a6; /* muted 提亮至 ~5.4:1，满足 WCAG AA */
   --accent:#22c55e; --accent-weak:rgba(34,197,94,.14); --accent-glow:rgba(34,197,94,.35);
   --blue:#5b9bff; --violet:#a78bfa; --warn:#f0a23b; --danger:#ef4444;
   --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:22px;
@@ -26,6 +26,32 @@ body{
     var(--bg);
   -webkit-font-smoothing:antialiased;overflow:hidden;
 }
+
+/* ---------- Starfield background ---------- */
+#sky{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.sky-stars{position:absolute;inset:-30% -10%;background-repeat:repeat;will-change:transform,opacity;
+  background-image:
+    radial-gradient(2.4px 2.4px at 40px 60px, rgba(255,255,255,1), transparent 60%),
+    radial-gradient(1.6px 1.6px at 130px 180px, rgba(255,255,255,.85), transparent 60%),
+    radial-gradient(1.8px 1.8px at 220px 90px, rgba(188,212,255,.9), transparent 60%),
+    radial-gradient(1.4px 1.4px at 300px 250px, rgba(255,255,255,.7), transparent 60%),
+    radial-gradient(1.8px 1.8px at 80px 290px, rgba(190,255,214,.8), transparent 60%),
+    radial-gradient(1.3px 1.3px at 180px 30px, rgba(255,255,255,.6), transparent 60%);
+  background-size:260px 260px;
+  animation:starDrift 150s linear infinite, twinkle 7s ease-in-out infinite}
+.sky-stars-2{background-size:420px 420px;opacity:.8;animation-duration:230s,9.5s;animation-delay:0s,-3s}
+.sky-stars-3{background-size:190px 190px;opacity:.55;animation-duration:95s,5.5s;animation-delay:0s,-1.5s}
+/* 几颗带辉光的亮星 */
+.sky-stars-2{background-image:
+    radial-gradient(2.6px 2.6px at 60px 120px, rgba(255,255,255,1), transparent 55%),
+    radial-gradient(2px 2px at 250px 60px, rgba(200,220,255,.95), transparent 55%),
+    radial-gradient(2.2px 2.2px at 160px 320px, rgba(255,240,210,.9), transparent 55%),
+    radial-gradient(1.6px 1.6px at 360px 200px, rgba(255,255,255,.7), transparent 55%)}
+@keyframes starDrift{from{transform:translateY(0)}to{transform:translateY(7%)}}
+@keyframes twinkle{0%,100%{opacity:.5}50%{opacity:1}}
+/* 内容层抬到星空之上 */
+.topbar{position:relative;z-index:2}
+.stage{position:relative;z-index:1}
 
 /* ---------- Topbar ---------- */
 .topbar{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 var(--sp-5,24px);
@@ -58,7 +84,7 @@ body{
 .btn-ai:hover:not(:disabled){border-color:var(--violet);color:#fff;box-shadow:0 6px 20px -10px rgba(167,139,250,.6)}
 .btn-ai.unconfigured{position:relative}
 .btn-ai.unconfigured::after{content:"";position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--warn);border:2px solid var(--bg-elev)}
-.icon-btn{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:transparent;
+.icon-btn{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:transparent;
   color:var(--muted);border:1px solid transparent;cursor:pointer;transition:all var(--dur) var(--ease)}
 .icon-btn:hover{color:var(--text);background:var(--surface-2);border-color:var(--line)}
 .icon-btn:active{transform:scale(.9)}
@@ -67,8 +93,15 @@ body{
 
 /* ---------- Stage / search hero ---------- */
 .stage{height:calc(100vh - 56px);display:flex;flex-direction:column;overflow:hidden}
-.search-hero{padding:26px 24px 14px;display:flex;justify-content:center;
-  transition:padding var(--dur-slow) var(--ease)}
+.search-hero{padding:26px 24px 14px;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:min-height var(--dur-slow) var(--ease),padding var(--dur-slow) var(--ease)}
+/* 首页（未搜索）：搜索框放大并垂直居中到视觉黄金位，一眼锁定 */
+.stage.home .search-hero{min-height:44vh;padding:24px 24px 18px}
+.stage.home .search-wrap{height:64px;max-width:760px}
+.stage.home #q{font-size:18px}
+.hero-tagline{height:0;margin:0;opacity:0;overflow:hidden;font-size:15px;color:var(--text-dim);letter-spacing:.01em;
+  transition:height var(--dur-slow) var(--ease),opacity var(--dur-slow) var(--ease),margin var(--dur-slow) var(--ease)}
+.stage.home .hero-tagline{height:22px;margin-bottom:16px;opacity:1}
 .stage.compact .search-hero{padding:12px 24px 8px}
 .search-wrap{position:relative;display:flex;align-items:center;gap:10px;width:100%;max-width:720px;
   padding:0 14px;height:54px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);
@@ -102,6 +135,15 @@ body{
 .empty-hero h2{margin:0 0 8px;font-size:22px;letter-spacing:-.02em}
 .empty-hero p{margin:0;color:var(--text-dim);font-size:14px}
 .ov-section{max-width:920px;margin:0 auto 26px}
+/* 统计带：填充首屏 + 快捷筛选 */
+.ov-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat-tile{display:flex;flex-direction:column;gap:5px;padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.stat-tile.clickable{cursor:pointer}
+.stat-tile.clickable:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface-2)}
+.stat-val{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.stat-val.accent{color:var(--accent)}.stat-val.warn{color:var(--warn)}.stat-val.danger{color:var(--danger)}
+.stat-label{font-size:12px;color:var(--text-dim)}
 .ov-head{display:flex;align-items:center;gap:8px;margin:0 0 12px;color:var(--text-dim);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .ov-head .clear-hist{margin-left:auto;font-size:11px;color:var(--muted);cursor:pointer;text-transform:none;letter-spacing:0}
 .ov-head .clear-hist:hover{color:var(--danger)}
@@ -111,10 +153,15 @@ body{
 .recent-card:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface-2)}
 .recent-card .rc-name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .recent-card .rc-desc{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hist-row{display:flex;flex-wrap:wrap;gap:8px}
+.hist-row{display:flex;flex-wrap:wrap;gap:9px}
 .hist-tag{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text-dim);
   padding:6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);transition:all var(--dur) var(--ease)}
 .hist-tag:hover{border-color:var(--accent);color:#fff}
+/* 最近搜索：贴近搜索框、标签更大更醒目 */
+.ov-recent-search{margin-top:-2px;margin-bottom:20px}
+.stage.home .ov-recent-search .hist-row{justify-content:center}
+.ov-recent-search .hist-tag{font-size:14.5px;padding:9px 16px}
+.ov-recent-search .hist-tag svg{width:16px;height:16px}
 .hist-tag svg{color:var(--muted)}
 .cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
 .cat-card{display:flex;align-items:center;gap:13px;cursor:pointer;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
@@ -142,7 +189,7 @@ body{
 .row-main{min-width:0;flex:1}
 .row-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .row-name mark{background:var(--accent-weak);color:#bff5d2;border-radius:3px;padding:0 1px}
-.row-desc{color:var(--muted);font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.row-desc{color:var(--text-dim);font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:118ch}
 .badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);flex-shrink:0;text-transform:uppercase}
 .badge.user{color:#7ee0a2;border-color:rgba(34,197,94,.3);background:var(--accent-weak)}
 .badge.project{color:#9cc1ff;border-color:rgba(91,155,255,.3);background:rgba(91,155,255,.1)}
@@ -160,7 +207,8 @@ body{
 .scrim.show{opacity:1}
 #modalScrim{z-index:55}
 .sheet{position:fixed;top:0;right:0;bottom:0;width:min(760px,94vw);z-index:50;display:flex;flex-direction:column;padding:18px 20px;
-  background:var(--bg-elev);border-left:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(100%);transition:transform var(--dur-slow) var(--ease)}
+  background:var(--bg-elev);border-left:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(100%);
+  transition:transform var(--dur-slow) var(--ease),width var(--dur-slow) var(--ease)}
 .sheet.show{transform:none}
 .sheet-head{display:flex;align-items:center;gap:12px;justify-content:space-between}
 .sheet-title{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
@@ -191,8 +239,8 @@ body{
 .toolbar-spacer{flex:1}
 .dirty-dot{font-size:14px;color:var(--warn)}
 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px}
-.seg-btn{border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:12.5px;font-weight:600;
-  padding:5px 14px;border-radius:6px;cursor:pointer;transition:all var(--dur) var(--ease)}
+.seg-btn{border:none;background:transparent;color:var(--text-dim);font-family:inherit;font-size:12.5px;font-weight:600;
+  padding:7px 14px;border-radius:6px;cursor:pointer;transition:all var(--dur) var(--ease)}
 .seg-btn.active{background:var(--accent-weak);color:#bff5d2}
 .seg-btn:hover:not(.active){color:var(--text)}
 .sheet-body{flex:1;min-height:0;display:flex;border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
@@ -240,8 +288,9 @@ body{
 .sheet-expand{position:absolute;top:50%;left:-15px;transform:translateY(-50%);z-index:1;display:grid;place-items:center;
   width:30px;height:54px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);cursor:pointer;
   transition:all var(--dur) var(--ease)}
-.sheet-expand:hover{color:var(--accent);border-color:var(--accent)}
-.sheet-expand svg{transition:transform var(--dur) var(--ease)}
+.sheet-expand:hover{color:var(--accent);border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-weak)}
+.sheet-expand:active{transform:translateY(-50%) scale(.82)}
+.sheet-expand svg{transition:transform var(--dur-slow) var(--ease)}
 .sheet.full .sheet-expand svg{transform:rotate(180deg)}
 .sheet.full{width:100vw;border-left:none}
 .btn-danger{background:var(--surface);color:#ff8b8b;border:1px solid rgba(239,68,68,.35)}

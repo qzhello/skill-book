@@ -1,6 +1,19 @@
+# 编译产物
 /skillbook
+/skillbook-darwin-arm64
+/skillbook-darwin-amd64
+
+# 运行期数据 / 日志 / pid
 /skillbook.db
+*.db
 *.db-wal
 *.db-shm
 /.skillbook.pid
 /skillbook.log
+
+# 本地编辑器 / 预览配置
+/.claude/
+.DS_Store
+
+# 内部规划草稿（含本机路径，不公开）
+/docs/superpowers/
