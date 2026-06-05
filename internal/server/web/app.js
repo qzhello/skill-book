@@ -1,7 +1,7 @@
 /* ===================== SkillBook front-end ===================== */
 const $ = (s) => document.querySelector(s);
 const el = {
-  scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"),
+  scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"), sidebarToggle: $("#sidebarToggle"),
   q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"),
   count: $("#count"), chips: $("#chips"),
   workbench: $("#workbench"), sidebar: $("#sidebar"), tree: $("#tree"), emptyHero: $("#emptyHero"),
@@ -222,7 +222,12 @@ function renderSidebarTree() {
   const items = state.view;
   if (!items.length) { el.tree.innerHTML = `<div class="tree-empty">没有匹配的 skill</div>`; return; }
   const q = state.query.trim();
-  // 按 平台 → 层级 分组
+  // 搜索态：扁平相关性列表（state.view 已按 全匹配>标题命中>描述命中 排序），不分组、不字母重排。
+  if (q) {
+    el.tree.innerHTML = `<div class="tree-flat">${items.map((s) => treeItem(s, true)).join("")}</div>`;
+    return;
+  }
+  // 浏览态：按 平台 → 层级 分组
   const byPlat = {};
   for (const s of items) {
     const p = s.platform || "claude";
@@ -256,14 +261,35 @@ function renderSidebarTree() {
   }
   el.tree.innerHTML = html;
 }
-function treeItem(s) {
+function treeItem(s, flat) {
   const active = state.current && state.current.id === s.id ? " active" : "";
+  const q = state.query.trim().toLowerCase();
   const flag = s.conflict
     ? '<span class="ti-flag conflict" title="命名冲突">冲突</span>'
     : (s.dup ? `<span class="ti-flag dup" title="重复 ${s.dupCount} 份">×${s.dupCount}</span>` : "");
   const t = s.mtime ? `<span class="ti-time" title="更新于 ${esc(fmtTime(s.mtime))}">${esc(relTime(s.mtime))}</span>` : "";
-  return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
-    <span class="ti-name">${highlight(s.name, state.query.trim().toLowerCase())}</span>${flag}${t}</button>`;
+  if (!flat) {
+    return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
+      <span class="ti-name">${highlight(s.name, q)}</span>${flag}${t}</button>`;
+  }
+  // 扁平搜索项：带平台点 + 层级；仅描述命中时附一行描述片段，标注“描述命中”
+  const dot = `<span class="plat-dot plat-${s.platform || "claude"}" title="${PLATFORM_LABEL[s.platform] || ""}"></span>`;
+  const lvl = `<span class="ti-lvl">${CAT_LABEL[s.source] || s.source}</span>`;
+  const descOnly = q && !s.nameLower.includes(q) && s.descLower.includes(q);
+  const sub = descOnly
+    ? `<span class="ti-sub"><span class="ti-sub-tag">描述命中</span>${descSnippet(s.description, q)}</span>`
+    : "";
+  return `<button class="tree-item flat${active}" data-id="${s.id}" title="${esc(s.name)}">
+    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${flag}${lvl}${t}</span>${sub}</button>`;
+}
+// 截取描述中命中关键词附近的一小段并高亮。
+function descSnippet(desc, q) {
+  const d = desc || "";
+  const i = d.toLowerCase().indexOf(q);
+  if (i < 0) return esc(d.slice(0, 60));
+  const start = Math.max(0, i - 24);
+  const seg = (start > 0 ? "…" : "") + d.slice(start, i + q.length + 36) + (i + q.length + 36 < d.length ? "…" : "");
+  return highlight(seg, q);
 }
 function markActiveTreeItem(id) {
   el.tree.querySelectorAll(".tree-item.active").forEach((n) => n.classList.remove("active"));
@@ -931,6 +957,7 @@ el.tree.addEventListener("click", (e) => {
 });
 
 el.scan.addEventListener("click", doScan);
+el.sidebarToggle.addEventListener("click", toggleFull);
 el.save.addEventListener("click", doSave);
 el.sheetClose.addEventListener("click", closeSheet);
 el.reveal.addEventListener("click", doReveal);

@@ -43,6 +43,7 @@ body{
 /* ---------- Topbar ---------- */
 .topbar{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 var(--sp-5,24px);
   border-bottom:1px solid var(--line-soft);background:rgba(11,16,32,.7);backdrop-filter:blur(12px)}
+.topbar-left{display:flex;align-items:center;gap:10px}
 .brand{display:flex;align-items:center;gap:10px}
 .brand-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;
   color:var(--accent);background:var(--accent-weak);border:1px solid rgba(34,197,94,.25)}
@@ -133,6 +134,15 @@ body{
 .ti-flag.dup{color:var(--muted);background:var(--surface-2)}
 .ti-time{flex-shrink:0;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .tree-item.active .ti-time{color:#7fe6a3}
+/* 扁平搜索结果项（按相关性，不分组） */
+.tree-flat{display:flex;flex-direction:column;gap:1px;padding-top:2px}
+.tree-item.flat{flex-direction:column;align-items:stretch;gap:3px;padding:7px 10px}
+.tree-item.flat .ti-line{display:flex;align-items:center;gap:7px;min-width:0}
+.ti-lvl{flex-shrink:0;font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.ti-sub{display:block;font-size:11px;color:var(--muted);line-height:1.4;padding-left:15px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ti-sub-tag{color:var(--blue);font-weight:600;margin-right:5px}
+.ti-sub mark{background:var(--accent-weak);color:#bff5d2;border-radius:2px}
 
 /* ---------- Chips ---------- */
 .chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:4px 24px 12px}
