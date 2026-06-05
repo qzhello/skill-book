@@ -911,8 +911,40 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+/* ---------- starfield (随机分布) ---------- */
+function buildSky() {
+  const sky = document.getElementById("sky");
+  if (!sky) return;
+  const layers = sky.querySelectorAll(".sky-stars");
+  if (!layers.length) return;
+  const COLORS = ["255,255,255", "255,255,255", "188,212,255", "190,255,214", "255,240,210"];
+  // 三层：远(小而密) → 近(大而疏)，做出景深
+  const specs = [
+    { count: 90, min: 0.6, max: 1.4, glow: 0.05 },
+    { count: 55, min: 1.0, max: 2.2, glow: 0.18 },
+    { count: 32, min: 1.6, max: 3.0, glow: 0.4 },
+  ];
+  layers.forEach((layer, li) => {
+    const s = specs[li] || specs[0];
+    let html = "";
+    for (let i = 0; i < s.count; i++) {
+      const x = (Math.random() * 100).toFixed(3);
+      const y = (Math.random() * 100).toFixed(3);
+      const size = (s.min + Math.random() * (s.max - s.min)).toFixed(2);
+      const color = COLORS[(Math.random() * COLORS.length) | 0];
+      const alpha = (0.45 + Math.random() * 0.55).toFixed(2);
+      const delay = (-Math.random() * 8).toFixed(2);      // 闪烁相位随机，避免同步
+      const dur = (4 + Math.random() * 5).toFixed(2);
+      const glow = Math.random() < s.glow ? `;box-shadow:0 0 ${(+size * 2.5).toFixed(1)}px rgba(${color},${alpha})` : "";
+      html += `<i class="star" style="left:${x}%;top:${y}%;width:${size}px;height:${size}px;background:rgba(${color},${alpha});animation-delay:${delay}s;animation-duration:${dur}s${glow}"></i>`;
+    }
+    layer.innerHTML = html;
+  });
+}
+
 /* ---------- boot ---------- */
 (async function boot() {
+  buildSky();
   try { await loadAll(); } catch { /* not scanned yet */ }
   probeAI();
   render(); el.q.focus();

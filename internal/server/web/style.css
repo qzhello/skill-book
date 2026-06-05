@@ -27,28 +27,15 @@ body{
   -webkit-font-smoothing:antialiased;overflow:hidden;
 }
 
-/* ---------- Starfield background ---------- */
+/* ---------- Starfield background（星点由 JS 随机生成，分布无规律） ---------- */
 #sky{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.sky-stars{position:absolute;inset:-30% -10%;background-repeat:repeat;will-change:transform,opacity;
-  background-image:
-    radial-gradient(2.4px 2.4px at 40px 60px, rgba(255,255,255,1), transparent 60%),
-    radial-gradient(1.6px 1.6px at 130px 180px, rgba(255,255,255,.85), transparent 60%),
-    radial-gradient(1.8px 1.8px at 220px 90px, rgba(188,212,255,.9), transparent 60%),
-    radial-gradient(1.4px 1.4px at 300px 250px, rgba(255,255,255,.7), transparent 60%),
-    radial-gradient(1.8px 1.8px at 80px 290px, rgba(190,255,214,.8), transparent 60%),
-    radial-gradient(1.3px 1.3px at 180px 30px, rgba(255,255,255,.6), transparent 60%);
-  background-size:260px 260px;
-  animation:starDrift 150s linear infinite, twinkle 7s ease-in-out infinite}
-.sky-stars-2{background-size:420px 420px;opacity:.8;animation-duration:230s,9.5s;animation-delay:0s,-3s}
-.sky-stars-3{background-size:190px 190px;opacity:.55;animation-duration:95s,5.5s;animation-delay:0s,-1.5s}
-/* 几颗带辉光的亮星 */
-.sky-stars-2{background-image:
-    radial-gradient(2.6px 2.6px at 60px 120px, rgba(255,255,255,1), transparent 55%),
-    radial-gradient(2px 2px at 250px 60px, rgba(200,220,255,.95), transparent 55%),
-    radial-gradient(2.2px 2.2px at 160px 320px, rgba(255,240,210,.9), transparent 55%),
-    radial-gradient(1.6px 1.6px at 360px 200px, rgba(255,255,255,.7), transparent 55%)}
+.sky-stars{position:absolute;inset:-30% -10%;will-change:transform;animation:starDrift 150s linear infinite}
+.sky-stars-2{animation-duration:230s}   /* 不同漂移速度 → 视差景深 */
+.sky-stars-3{animation-duration:95s}
+.star{position:absolute;border-radius:50%;will-change:opacity;
+  animation-name:twinkle;animation-timing-function:ease-in-out;animation-iteration-count:infinite}
 @keyframes starDrift{from{transform:translateY(0)}to{transform:translateY(7%)}}
-@keyframes twinkle{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes twinkle{0%,100%{opacity:.45}50%{opacity:1}}
 /* 内容层抬到星空之上 */
 .topbar{position:relative;z-index:2}
 .stage{position:relative;z-index:1}
