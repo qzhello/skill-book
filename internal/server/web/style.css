@@ -50,7 +50,9 @@ body{
 .brand-accent{color:var(--accent)}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .count-pill{font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--line);
-  padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums}
+  padding:4px 10px;border-radius:999px;font-variant-numeric:tabular-nums;cursor:pointer;transition:all var(--dur) var(--ease)}
+.count-pill:hover{border-color:var(--accent);color:#fff}
+.brand{cursor:pointer}
 
 /* ---------- Buttons ---------- */
 .btn{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;

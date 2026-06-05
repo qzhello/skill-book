@@ -60,7 +60,7 @@ const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展�
 
 const state = {
   all: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
-  scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false,
+  scanned: false, query: "", cat: "all", view: [], cursor: -1, justChanged: false, browseAll: false,
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
   collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
@@ -206,7 +206,7 @@ function renderChips() {
 /* ---------- main render switch ---------- */
 function render() {
   compute();
-  const showOverview = state.scanned && !state.query.trim() && state.cat === "all";
+  const showOverview = state.scanned && !state.query.trim() && state.cat === "all" && !state.browseAll;
   el.stage.classList.toggle("compact", state.scanned && !showOverview);
   el.stage.classList.toggle("home", showOverview); // 首页：搜索框居中聚焦
   renderRecentTags(showOverview); // 最近搜索：搜索框下方小 tag，仅首页显示
@@ -282,8 +282,9 @@ function rowHTML(s, idx, animate) {
 }
 function renderResults() {
   const n = state.view.length, q = state.query.trim();
+  const scope = state.browseAll && state.cat === "all" && !q ? " · 全部 skill" : (state.cat !== "all" ? ` · ${CHIP_LABEL[state.cat] || state.cat}` : "");
   el.resultsMeta.innerHTML = n
-    ? `<b>${n}</b> 个结果${q ? ` · 关键词「${esc(q)}」精确优先` : ""}${state.cat !== "all" ? ` · ${CHIP_LABEL[state.cat] || state.cat}` : ""}`
+    ? `<b>${n}</b> 个结果${q ? ` · 关键词「${esc(q)}」精确优先` : ""}${scope}`
     : "";
   el.sizer.style.height = n * ROW_H + "px";
   el.viewport.scrollTop = 0;
@@ -944,7 +945,20 @@ el.chips.addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
   const cat = b.dataset.cat;
   if (cat === "dup" || cat === "conflict") { openGroups(cat); return; }
-  state.cat = cat; state.cursor = -1; renderChips(); render();
+  state.browseAll = false; state.cat = cat; state.cursor = -1; renderChips(); render();
+});
+// 右上角计数 pill：点它平铺查看全部 skill（完整列表，无需搜索词）。
+el.count.addEventListener("click", () => {
+  if (!state.scanned) return;
+  state.browseAll = true; state.cat = "all"; state.query = ""; el.q.value = ""; el.clear.hidden = true; state.cursor = -1;
+  renderChips(); render();
+  el.viewport.focus();
+});
+// 左上角 logo：回首页概览。
+const brandEl = document.querySelector(".brand");
+if (brandEl) brandEl.addEventListener("click", () => {
+  state.browseAll = false; state.cat = "all"; state.query = ""; el.q.value = ""; el.clear.hidden = true; state.cursor = -1;
+  renderChips(); render();
 });
 el.overview.addEventListener("click", (e) => {
   const card = e.target.closest(".recent-card"); if (card) return openDetail(card.dataset.id, false);
