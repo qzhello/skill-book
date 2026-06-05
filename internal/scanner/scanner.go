@@ -62,11 +62,13 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 	return out, nil
 }
 
-// DefaultRoots 返回本机标准来源（用户级、当前项目级、plugins）。
+// DefaultRoots 返回本机标准来源：仅用户自管理的 skill（用户级 + 项目级）。
+// 不再扫描 ~/.claude/plugins —— 插件 skill 由插件系统管理、只读且大量重复缓存，
+// 是噪声而非用户要治理的对象。Codex 用户级目录存在才会被扫到（ScanRoots 跳过缺失根）。
 func DefaultRoots(home, cwd string) []Root {
 	return []Root{
 		{Path: filepath.Join(home, ".claude", "skills"), Source: model.SourceUser},
 		{Path: filepath.Join(cwd, ".claude", "skills"), Source: model.SourceProject},
-		{Path: filepath.Join(home, ".claude", "plugins"), Source: model.SourcePlugin},
+		{Path: filepath.Join(home, ".codex", "skills"), Source: model.SourceUser},
 	}
 }
