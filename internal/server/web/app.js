@@ -731,7 +731,15 @@ async function saveSource(id, payload) {
     toast(payload.source_url ? "已保存来源" : "已清除来源");
   } catch { toast("保存失败", "err"); }
 }
-function doFind() { setMode("edit"); setTimeout(() => state.editor.execCommand("find"), 60); }
+// 仅在编辑器可见（编辑 / 双屏）时用 CodeMirror 查找，且不改变当前模式；
+// 浏览模式不接管，交给浏览器原生查找（作用于渲染后的预览文本）。
+function doFind() {
+  if ((state.mode === "edit" || state.mode === "split") && state.editor) {
+    state.editor.execCommand("find");
+    return true;
+  }
+  return false;
+}
 
 /* ---------- AI optimize + diff ---------- */
 async function probeAI() {
@@ -1256,7 +1264,7 @@ document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("cli
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { if (openModalEl) return closeModal(); if (!el.sheet.hidden) return closeSheet(); }
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f" && !el.sheet.hidden && openModalEl === null) { e.preventDefault(); doFind(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f" && !el.sheet.hidden && openModalEl === null) { if (doFind()) e.preventDefault(); return; }
   if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && el.sheet.hidden && openModalEl === null) {
     if (document.activeElement !== el.q) { e.preventDefault(); el.q.focus(); el.q.select(); }
   }
