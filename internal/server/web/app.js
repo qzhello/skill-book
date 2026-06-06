@@ -198,6 +198,8 @@ const I18N = {
     "已保存": "Saved",
     "保存失败": "Save failed",
     "标签": "Tags",
+    "收起": "Collapse",
+    "更多 +{n}": "More +{n}",
     "编辑标签": "Edit tags",
     "编辑标签（用逗号分隔，最多 8 个）：": "Edit tags (comma-separated, up to 8):",
     "标签已更新": "Tags updated",
@@ -364,7 +366,7 @@ const $ = (s) => document.querySelector(s);
 const el = {
   scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"), sidebarToggle: $("#sidebarToggle"),
   q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"),
-  chips: $("#chips"),
+  chips: $("#chips"), tagSection: $("#tagSection"),
   workbench: $("#workbench"), sidebar: $("#sidebar"), tree: $("#tree"), emptyHero: $("#emptyHero"),
   detailEmpty: $("#detailEmpty"), sheet: $("#sheet"), sheetName: $("#sheetName"),
   sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
@@ -469,7 +471,7 @@ const state = {
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
   collapsed: new Set(), linkedSources: new Set(), updates: new Set(), source: null, sourceEditing: false,
-  favorites: new Set(), fileTreeCollapsed: false,
+  favorites: new Set(), fileTreeCollapsed: false, tagsCollapsed: false, tagsShowAll: false,
   diffMode: "ai", pendingUpdate: null,
   groupKind: "dup", groupSel: new Set(),
   readerSize: 15, readerFont: "sans"
@@ -655,16 +657,10 @@ function renderChips() {
   const linked = state.linkedSources.size;
   counts.fav = state.all.filter((s) => state.favorites.has(s.id)).length;
   counts.update = state.all.filter((s) => state.updates.has(s.id)).length;
-  // 标签频次（多标签：一个 skill 计入它的每个标签）
-  const tagCount = {};
-  for (const s of state.all) {for (const tg of (s.tags || [])) tagCount[tg] = (tagCount[tg] || 0) + 1;}
-  const topTags = Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a] || a.localeCompare(b)).slice(0, 14);
   const defs = [["all", t("全部")]];
   if (counts.fav) defs.push(["fav", t("收藏")]);
   if (counts.update) defs.push(["update", t("可更新")]);
   for (const pid of platIds()) {if (counts[pid]) defs.push([pid, platLabel(pid)]);}
-  // 标签 chip（已隐藏用户级/项目级层级，标签为主筛选维度）
-  for (const tg of topTags) {const key = "tag:" + tg;counts[key] = tagCount[tg];defs.push([key, tg]);}
   if (counts.conflict) defs.push(["conflict", t("冲突")]);
   if (counts.dup) defs.push(["dup", t("重复")]);
   if (linked) defs.push(["linked", t("有来源")]);
@@ -672,6 +668,37 @@ function renderChips() {
   counts.linked = linked;counts.unlinked = state.all.length - linked;
   el.chips.innerHTML = defs.map(([k, label]) =>
   `<button class="chip ${state.cat === k ? "active" : ""}" data-cat="${k}">${t(label)}<span class="ct">${counts[k] || 0}</span></button>`).join("");
+  renderTagSection();
+}
+// 标签单独成区：可折叠、按频次排序、紧凑小药丸、超高滚动，避免挤占主筛选。
+function renderTagSection() {
+  if (!el.tagSection) return;
+  const tagCount = {};
+  for (const s of state.all) {for (const tg of (s.tags || [])) tagCount[tg] = (tagCount[tg] || 0) + 1;}
+  const tags = Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a] || a.localeCompare(b));
+  if (!tags.length) {el.tagSection.hidden = true;el.tagSection.innerHTML = "";return;}
+  el.tagSection.hidden = false;
+  const collapsed = state.tagsCollapsed;
+  const head = `<button class="tag-sec-head" data-tagtoggle>
+    <span class="tw-chev ${collapsed ? "" : "open"}">${CHEV}</span>
+    <span class="tag-sec-name">${t("标签")}</span><span class="tag-sec-ct">${tags.length}</span></button>`;
+  let body = "";
+  if (!collapsed) {
+    const LIMIT = 24;
+    const showAll = state.tagsShowAll || tags.length <= LIMIT;
+    const shown = showAll ? tags : tags.slice(0, LIMIT);
+    let chips = shown.map((tg) => {
+      const key = "tag:" + tg, active = state.cat === key ? " active" : "";
+      return `<button class="chip chip-tag${active}" data-cat="${key}">${esc(tg)}<span class="ct">${tagCount[tg]}</span></button>`;
+    }).join("");
+    if (tags.length > LIMIT) {
+      chips += showAll
+        ? `<button class="chip chip-tag chip-more" data-tagmore>${t("收起")}</button>`
+        : `<button class="chip chip-tag chip-more" data-tagmore>${t("更多 +{n}", { n: tags.length - LIMIT })}</button>`;
+    }
+    body = `<div class="tag-chips">${chips}</div>`;
+  }
+  el.tagSection.innerHTML = head + body;
 }
 
 /* ---------- main render switch ---------- */
@@ -1791,6 +1818,16 @@ el.chips.addEventListener("click", (e) => {
   if (cat === "dup" || cat === "conflict") {openGroups(cat);return;}
   state.cat = cat;renderChips();render();
 });
+if (el.tagSection) el.tagSection.addEventListener("click", (e) => {
+  if (e.target.closest("[data-tagtoggle]")) {
+    state.tagsCollapsed = !state.tagsCollapsed;
+    try {localStorage.setItem("sb.tagsCollapsed", state.tagsCollapsed ? "1" : "0");} catch {/* ignore */}
+    renderTagSection();return;
+  }
+  if (e.target.closest("[data-tagmore]")) {state.tagsShowAll = !state.tagsShowAll;renderTagSection();return;}
+  const b = e.target.closest(".chip");if (!b) return;
+  state.cat = b.dataset.cat;renderChips();render();
+});
 // 右上角计数 pill / 左上角 logo：清空搜索与筛选，回到全部。
 function resetToAll() {
   state.cat = "all";state.query = "";el.q.value = "";el.clear.hidden = true;
@@ -1949,6 +1986,7 @@ window.addEventListener("resize", invalidatePvAnchors, { passive: true });
   buildSky();
   state.favorites = new Set(LS.favorites());
   try { state.fileTreeCollapsed = localStorage.getItem("sb.ftCollapsed") === "1"; } catch { /* ignore */ }
+  try { state.tagsCollapsed = localStorage.getItem("sb.tagsCollapsed") === "1"; } catch { /* ignore */ }
   applyFileTreeCollapsed();
   applyI18n(); // 应用静态文案的当前语言
   const tag = document.querySelector(".lang-tag");if (tag) tag.textContent = langTagText();

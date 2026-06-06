@@ -197,6 +197,19 @@ body{
 .chip .ct{font-variant-numeric:tabular-nums;color:var(--muted);font-size:11.5px}
 .chip.active .ct{color:var(--accent-strong)}
 
+/* ---------- 标签分组（可折叠，紧凑小药丸，超高滚动）---------- */
+.tag-section{padding:0 18px 10px}
+.tag-sec-head{display:flex;align-items:center;gap:6px;width:100%;cursor:pointer;background:none;border:0;padding:2px 2px 6px;
+  font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.tag-sec-head:hover{color:var(--text)}
+.tag-sec-head .tw-chev{display:inline-flex;transition:transform var(--dur) var(--ease)}
+.tag-sec-head .tw-chev.open{transform:rotate(90deg)}
+.tag-sec-ct{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:500}
+.tag-chips{display:flex;flex-wrap:wrap;gap:5px;max-height:150px;overflow:auto;padding:2px 1px}
+.chip.chip-tag{font-size:11.5px;padding:3px 9px;gap:4px;background:transparent;color:var(--text-dim)}
+.chip.chip-tag .ct{font-size:10.5px;opacity:.75}
+.chip.chip-tag.active{background:var(--accent-weak);color:var(--accent-ink);border-color:rgba(124,58,237,.4)}
+
 /* ---------- Overview ---------- */
 .overview{flex:1;overflow:auto;padding:8px 24px 32px}
 .empty-hero{position:relative;text-align:center;padding:70px 20px;max-width:560px;margin:30px auto 0;
@@ -287,6 +300,8 @@ body{
 .sheet-title{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
 .sheet-title h3{margin:0;font-size:17px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sheet-badges{display:inline-flex;gap:6px;flex-shrink:0}
+/* 详情：标签独占一行（名字下方），多标签也不挤 */
+.sheet-tags-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:7px}
 /* 标签 pills + 编辑按钮 */
 .sheet-tags{display:inline-flex;gap:5px;flex-wrap:wrap;align-items:center}
 .tag-pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:500;line-height:1;

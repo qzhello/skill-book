@@ -29,10 +29,11 @@ const classifyConcurrency = 4
 
 // classifySystemPrompt 是默认分类提示词。可被 ~/.skillbook/classifier.md 覆盖
 // （"把分类逻辑做成可编辑的 Skill"）。{vocab} 会替换为已有标签词表以鼓励复用。
-const classifySystemPrompt = `你是一个技能库分类助手。根据给定 skill 的名称和描述，归纳 1-5 个简短的主题标签。
+const classifySystemPrompt = `你是一个技能库分类助手。根据给定 skill 的名称和描述，归纳 1-3 个简短的主题标签（宁少勿滥）。
 要求：
-- 标签要短（中文 2-6 字，或英文单词），描述技能的领域/用途/技术栈，例如：测试、Web、前端、后端、数据库、API、CLI、文档、安全、性能、部署、AI、Go、Python、TypeScript、React。
-- 优先复用下列已有标签（若语义吻合），避免造同义新词：{vocab}
+- 标签要短（中文 2-6 字，或一个英文单词），描述领域/用途/技术栈，如：测试、Web、前端、后端、数据库、API、CLI、文档、安全、性能、部署、AI、Go、Python、TypeScript、React。
+- 强约束：尽量只从下列已有标签中挑选（语义吻合就复用）；只有确实没有合适的才新建标签，且新建最多 1 个。避免造同义词（如"测试/单元测试/test"应统一为"测试"）。
+- 已有标签（按常用度）：{vocab}
 - 只输出一个 JSON 字符串数组，例如 ["测试","Go"]，不要输出任何解释或代码块标记。`
 
 // handleClassifyStatus 返回当前分类进度。
@@ -220,8 +221,8 @@ func (s *Server) classifierPrompt(vocab []string) string {
 	}
 	v := "（暂无）"
 	if len(vocab) > 0 {
-		if len(vocab) > 40 {
-			vocab = vocab[:40]
+		if len(vocab) > 20 {
+			vocab = vocab[:20] // 只喂高频前 20，促使收敛、避免词表膨胀
 		}
 		v = strings.Join(vocab, "、")
 	}
