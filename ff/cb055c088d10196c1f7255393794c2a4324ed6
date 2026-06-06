@@ -1,0 +1,49 @@
+internal/scanner/scanner_test.go
+  ai_agent 55-107
+internal/server/sourceauth.go
+  ai_agent 1-122
+internal/server/autocheck.go
+  ai_agent 1-122
+cmd/skillbook/main.go
+  ai_agent 32
+internal/server/web/style.css
+  ai_agent 172-181,290-304
+internal/server/import_routes.go
+  ai_agent 5,83-84,166,218-219,221,223,250-251,257-262,264-265,269-271,275-324,326,329-333,344-347,354-359,365,386-395,398-415
+internal/store/tags.go
+  ai_agent 1-119
+internal/store/tags_test.go
+  ai_agent 1-43
+internal/backup/service.go
+  ai_agent 13-14,50-51,56-62,66
+internal/scanner/scanner.go
+  ai_agent 7-8,69-114,116-125
+internal/server/server.go
+  ai_agent 13,40-42,52,82-91,147-151,153-160,164-168
+internal/server/classify.go
+  ai_agent 1-307
+internal/server/platforms.go
+  ai_agent 1-82
+internal/server/web/index.html
+  ai_agent 69-73,108-112,187-197,202-203,305-314,326
+internal/store/store.go
+  ai_agent 36-39,42-46,62-65
+internal/githubsrc/githubsrc.go
+  ai_agent 21,138-150
+internal/server/source_routes.go
+  ai_agent 117-118,122-135,149-155,181,189-192,200-201,222,229-234
+internal/server/classify_test.go
+  ai_agent 1-67
+internal/store/sources.go
+  ai_agent 18-21,25-39,42-43,50,55-61,63-64,68-69,71,75-118
+internal/server/web/app.js
+  ai_agent 7-9,12-24,94-98,200-206,208-209,263,356,372-373,381-382,393-394,407-436,439-449,467,471,514,536-543,546-547,558-561,567,573,577,588-589,596,601-602,641-643,653,657-661,664-667,710-712,714,722-723,749,752,760,1107-1108,1160,1166,1168-1169,1172-1176,1184-1241,1303-1310,1313,1321-1324,1334-1337,1343,1439-1451,1497,1554,1556,1663-1667,1674-1675,1854,1864,1899-1900,1902
+internal/server/file_routes.go
+  ai_agent 36-37,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ffcb055c088d10196c1f7255393794c2a4324ed6",
+  "prompts": {}
+}
