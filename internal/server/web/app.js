@@ -679,10 +679,14 @@ function markActiveTreeItem(id) {
 let splitPreviewTimer = null;
 function ensureEditor() {
   if (state.editor) return;
-  state.editor = CodeMirror.fromTextArea(el.ed, { mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true });
+  state.editor = CodeMirror.fromTextArea(el.ed, {
+    mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true,
+    // 查找命中（选区）外，其余相同文本也高亮，便于看清所有匹配
+    highlightSelectionMatches: { minChars: 2, showToken: false, delay: 80 }
+  });
   state.editor.on("change", () => {
     el.dirty.hidden = state.editor.getValue() === state.baseline;
-    if (state.mode === "split") {clearTimeout(splitPreviewTimer);splitPreviewTimer = setTimeout(() => {renderPreview();syncFromEditor();}, 140);}
+    if (state.mode === "split") {clearTimeout(splitPreviewTimer);splitPreviewTimer = setTimeout(() => {renderPreview();markPreview(currentFindQuery());syncFromEditor();}, 140);}
   });
   // 用 scroller 的 DOM scroll 事件（比 CM 的 "scroll" 事件更可靠，任何滚动都触发）；
   // 用 rAF 把一帧内的多次 scroll 合并为一次同步，避免逐事件重算导致卡顿。
@@ -820,6 +824,47 @@ function renderPreview() {
   highlightPreview();
   invalidatePvAnchors();
 }
+// 双屏查找：在预览（渲染后 HTML）中高亮所有匹配文本。
+function currentFindQuery() {
+  const inp = state.editor && state.editor.getWrapperElement().querySelector(".CodeMirror-dialog input");
+  return inp ? inp.value : "";
+}
+function clearPreviewMarks() {
+  const marks = el.preview.querySelectorAll("mark.pv-find");
+  if (!marks.length) return;
+  marks.forEach((m) => m.parentNode.replaceChild(document.createTextNode(m.textContent), m));
+  el.preview.normalize();
+  invalidatePvAnchors();
+}
+function markPreview(q) {
+  clearPreviewMarks();
+  q = (q || "").trim();
+  if (!q || state.mode !== "split") return;
+  const ql = q.toLowerCase();
+  const walker = document.createTreeWalker(el.preview, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || n.parentNode.nodeName === "MARK") return NodeFilter.FILTER_REJECT;
+      return n.nodeValue.toLowerCase().includes(ql) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  const targets = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) targets.push(n);
+  for (const node of targets) {
+    const text = node.nodeValue, low = text.toLowerCase(), frag = document.createDocumentFragment();
+    let i = 0, idx;
+    while ((idx = low.indexOf(ql, i)) >= 0) {
+      if (idx > i) frag.appendChild(document.createTextNode(text.slice(i, idx)));
+      const mk = document.createElement("mark");
+      mk.className = "pv-find";
+      mk.textContent = text.slice(idx, idx + q.length);
+      frag.appendChild(mk);
+      i = idx + q.length;
+    }
+    if (i < text.length) frag.appendChild(document.createTextNode(text.slice(i)));
+    node.parentNode.replaceChild(frag, node);
+  }
+  invalidatePvAnchors();
+}
 // 逐顶层 markdown 块包一层 data-line（源码起始行，0-based），供双屏按行对齐滚动。
 function renderBodyWithAnchors(md, body) {
   if (!window.marked) return esc(body);
@@ -849,7 +894,7 @@ function setMode(m) {
     const savedW = (() => {try {return localStorage.getItem("sb.splitW");} catch {return null;}})();
     if (savedW) el.sheetMain.style.setProperty("--split-w", savedW);
     el.editorWrap.hidden = false;el.preview.hidden = false;el.splitGutter.hidden = false;
-    renderPreview();
+    renderPreview();markPreview(currentFindQuery());
     setTimeout(() => {state.editor.refresh();syncFromEditor();}, 30);
   } else if (m === "edit") {
     el.splitGutter.hidden = true;
@@ -1127,7 +1172,17 @@ async function saveSource(id, payload) {
 // 浏览模式不接管，交给浏览器原生查找（作用于渲染后的预览文本）。
 function doFind() {
   if ((state.mode === "edit" || state.mode === "split") && state.editor) {
-    state.editor.execCommand("find");
+    state.editor.execCommand("findPersistent");
+    // 唤起后把焦点放到查找输入框（并选中已有内容，便于直接改写关键词）
+    setTimeout(() => {
+      const inp = state.editor.getWrapperElement().querySelector(".CodeMirror-dialog input");
+      if (inp) {
+        inp.focus();inp.select();
+        markPreview(inp.value);
+        inp.addEventListener("input", () => markPreview(inp.value));
+        inp.addEventListener("keydown", (e) => {if (e.key === "Escape") clearPreviewMarks();});
+      }
+    }, 0);
     return true;
   }
   return false;

@@ -349,6 +349,12 @@ body{
 .cm-s-material-darker .cm-variable-3,.cm-s-material-darker .cm-keyword,.cm-s-material-darker .cm-atom{color:#6D28D9}
 .cm-s-material-darker .cm-tag{color:#0E7FB8}
 .cm-s-material-darker .cm-hr{color:#A6A2B8}
+/* 查找：其余匹配琥珀色高亮（当前匹配仍是紫色选区，二者区分）*/
+.cm-s-material-darker .cm-matchhighlight{background:rgba(245,179,1,.30);border-radius:2px}
+:root[data-theme="dark"] .cm-s-material-darker .cm-matchhighlight{background:rgba(245,179,1,.24)}
+/* 双屏预览中的查找命中高亮（与编辑器一致的琥珀色）*/
+.md-preview mark.pv-find{background:rgba(245,179,1,.45);color:inherit;border-radius:2px;padding:0 1px}
+:root[data-theme="dark"] .md-preview mark.pv-find{background:rgba(245,179,1,.36)}
 .md-preview{position:relative}
 /* 双屏：左编辑 / 右预览，可拖拽中缝调整宽度 */
 .split-gutter{display:none}
