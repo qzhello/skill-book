@@ -688,7 +688,6 @@ function render() {
 }
 
 /* ---------- 左侧平台→层级→skill 可折叠树 ---------- */
-const SRC_ORDER = ["user", "project", "plugin"];
 const CHEV = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 
 function renderSidebarTree() {
@@ -700,39 +699,27 @@ function renderSidebarTree() {
     el.tree.innerHTML = `<div class="tree-flat">${items.map((s) => treeItem(s, true)).join("")}</div>`;
     return;
   }
-  // 浏览态：按 平台 → 层级 分组
+  // 浏览态：按 平台 分组（已隐藏用户级/项目级层级，不再二级分组）
   const byPlat = {};
   for (const s of items) {
     const p = s.platform || "claude";
-    byPlat[p] = byPlat[p] || {};
-    (byPlat[p][s.source] = byPlat[p][s.source] || []).push(s);
+    (byPlat[p] = byPlat[p] || []).push(s);
   }
   // 平台渲染顺序：已发现平台（claude 优先）+ 数据里出现但未列出的兜底。
   const platOrder = platIds().slice();
   for (const p in byPlat) {if (!platOrder.includes(p)) platOrder.push(p);}
   let html = "";
   for (const p of platOrder) {
-    const subs = byPlat[p];if (!subs) continue;
-    const total = Object.values(subs).reduce((a, arr) => a + arr.length, 0);
+    const arr = byPlat[p];if (!arr || !arr.length) continue;
+    arr.sort((a, b) => a.name.localeCompare(b.name));
     const pkey = "plat:" + p;
     const pOpen = q ? true : !state.treeCollapsed.has(pkey); // 搜索时强制全展开
     html += `<div class="tree-group">
       <button class="tree-head lvl0" data-tk="${pkey}">
         <span class="tw-chev ${pOpen ? "open" : ""}">${CHEV}</span>
         ${platDot(p)}
-        <span class="th-name">${platLabel(p)}</span><span class="th-ct">${total}</span></button>`;
-    if (pOpen) {
-      for (const src of SRC_ORDER) {
-        const arr = subs[src];if (!arr || !arr.length) continue;
-        arr.sort((a, b) => a.name.localeCompare(b.name));
-        const skey = "src:" + p + ":" + src;
-        const sOpen = q ? true : !state.treeCollapsed.has(skey);
-        html += `<button class="tree-head lvl1" data-tk="${skey}">
-          <span class="tw-chev ${sOpen ? "open" : ""}">${CHEV}</span>
-          <span class="th-name">${t(CAT_LABEL[src] || src)}</span><span class="th-ct">${arr.length}</span></button>`;
-        if (sOpen) html += arr.map((s) => treeItem(s)).join("");
-      }
-    }
+        <span class="th-name">${platLabel(p)}</span><span class="th-ct">${arr.length}</span></button>`;
+    if (pOpen) html += arr.map((s) => treeItem(s)).join("");
     html += `</div>`;
   }
   el.tree.innerHTML = html;
@@ -748,16 +735,16 @@ function treeItem(s, flat) {
     return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
       <span class="ti-name">${highlight(s.name, q)}</span>${updCell(s.id)}${flag}${tm}${favCellHtml(s.id)}</button>`;
   }
-  // 扁平搜索项：带平台点 + 层级；名字未命中、仅描述命中时附一行高亮描述片段
+  // 扁平搜索项：带平台点 + 标签；名字未命中、仅描述命中时附一行高亮描述片段
   const dot = platDot(s.platform || "claude", platLabel(s.platform));
-  const lvl = `<span class="ti-lvl">${t(CAT_LABEL[s.source] || s.source)}</span>`;
+  const tagPills = (s.tags || []).slice(0, 2).map((tg) => `<span class="ti-tag">${esc(tg)}</span>`).join("");
   const descOnly = q && !s.nameLower.includes(q) && s.descLower.includes(q);
   const sub = descOnly ?
   `<span class="ti-sub">${descSnippet(s.description, q)}</span>` :
   "";
   // 搜索结果不展示时间（更新时间在搜索场景下无意义）
   return `<button class="tree-item flat${active}" data-id="${s.id}" title="${esc(s.name)}">
-    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${updCell(s.id)}${flag}${lvl}${favCellHtml(s.id)}</span>${sub}</button>`;
+    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${updCell(s.id)}${flag}${tagPills}${favCellHtml(s.id)}</span>${sub}</button>`;
 }
 // 截取描述中命中关键词附近的一小段并高亮。
 function descSnippet(desc, q) {
@@ -1970,4 +1957,13 @@ window.addEventListener("resize", invalidatePvAnchors, { passive: true });
   try {await loadAll();} catch {/* not scanned yet */}
   probeAI();
   render();el.q.focus();
+  resumeClassifyIfRunning(); // 刷新后若分类仍在后台进行，恢复进度条与轮询
 })();
+
+// resumeClassifyIfRunning 页面加载时查一次分类状态，正在跑则接管进度展示。
+async function resumeClassifyIfRunning() {
+  try {
+    const st = await API.classifyStatus();
+    if (st.running) {showClsBar(st.done || 0, st.total || 0);pollClassify();}
+  } catch {/* ignore */}
+}
