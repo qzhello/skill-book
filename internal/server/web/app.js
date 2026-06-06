@@ -533,6 +533,7 @@ function toggleFileTree() {
   state.fileTreeCollapsed = !state.fileTreeCollapsed;
   try { localStorage.setItem("sb.ftCollapsed", state.fileTreeCollapsed ? "1" : "0"); } catch { /* ignore */ }
   applyFileTreeCollapsed();
+  invalidatePvAnchors();
   if (state.editor) setTimeout(() => state.editor.refresh(), 60);
 }
 const STAR_SVG ='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>';
@@ -683,46 +684,62 @@ function ensureEditor() {
     el.dirty.hidden = state.editor.getValue() === state.baseline;
     if (state.mode === "split") {clearTimeout(splitPreviewTimer);splitPreviewTimer = setTimeout(() => {renderPreview();syncFromEditor();}, 140);}
   });
-  // 用 scroller 的 DOM scroll 事件（比 CM 的 "scroll" 事件更可靠，任何滚动都触发）
-  state.editor.getScrollerElement().addEventListener("scroll", syncFromEditor, { passive: true });
-  el.preview.addEventListener("scroll", syncFromPreview, { passive: true });
+  // 用 scroller 的 DOM scroll 事件（比 CM 的 "scroll" 事件更可靠，任何滚动都触发）；
+  // 用 rAF 把一帧内的多次 scroll 合并为一次同步，避免逐事件重算导致卡顿。
+  state.editor.getScrollerElement().addEventListener("scroll", () => scheduleSync(syncFromEditor), { passive: true });
+  el.preview.addEventListener("scroll", () => scheduleSync(syncFromPreview), { passive: true });
 }
 // 双屏同步滚动：基于源码行锚点对齐（不是纯百分比），让两侧看到的是同一段内容。
 // 用 setTimeout 清 flag（requestAnimationFrame 在无重绘/后台时可能不触发，导致 flag 卡死）。
 let scrollSyncing = false;
 function endSync() {setTimeout(() => {scrollSyncing = false;}, 70);}
+// rAF 节流：一帧内多次 scroll 只跑一次同步。
+let syncScheduled = false;
+function scheduleSync(fn) {
+  if (syncScheduled) return;
+  syncScheduled = true;
+  requestAnimationFrame(() => {syncScheduled = false;fn();});
+}
+// 预览块锚点缓存 [{line, top}]：仅在内容/布局变化时重建，滚动时不再测量 DOM。
+let pvAnchors = null;
+function invalidatePvAnchors() {pvAnchors = null;}
+function getPvAnchors() {
+  if (pvAnchors) return pvAnchors;
+  pvAnchors = [];
+  for (const b of el.preview.querySelectorAll(".pv-blk[data-line]")) {
+    pvAnchors.push({ line: +b.dataset.line, top: b.offsetTop });
+  }
+  return pvAnchors;
+}
 // 编辑器顶部可视行 → 预览中对应的 y（在相邻锚点间线性插值）。
 function previewYForLine(line) {
-  const blks = el.preview.querySelectorAll(".pv-blk[data-line]");
-  if (!blks.length) {
+  const a = getPvAnchors();
+  if (!a.length) {
     const si = state.editor.getScrollInfo();const d = si.height - si.clientHeight;
     const r = d > 0 ? si.top / d : 0;return r * (el.preview.scrollHeight - el.preview.clientHeight);
   }
   let prev = null;
-  for (const b of blks) {
-    const bl = +b.dataset.line;
-    if (bl <= line) {prev = b;continue;}
-    if (!prev) return b.offsetTop;
-    const pl = +prev.dataset.line;
-    const ratio = bl > pl ? (line - pl) / (bl - pl) : 0;
-    return prev.offsetTop + ratio * (b.offsetTop - prev.offsetTop);
+  for (const cur of a) {
+    if (cur.line <= line) {prev = cur;continue;}
+    if (!prev) return cur.top;
+    const ratio = cur.line > prev.line ? (line - prev.line) / (cur.line - prev.line) : 0;
+    return prev.top + ratio * (cur.top - prev.top);
   }
-  return prev ? prev.offsetTop : 0;
+  return prev ? prev.top : 0;
 }
 // 预览滚动位置 y → 编辑器对应的源码行（插值）。
 function lineForPreviewY(y) {
-  const blks = [...el.preview.querySelectorAll(".pv-blk[data-line]")];
-  if (!blks.length) return null;
+  const a = getPvAnchors();
+  if (!a.length) return null;
   let prev = null;
-  for (const b of blks) {
-    if (b.offsetTop <= y) {prev = b;continue;}
-    if (!prev) return +b.dataset.line;
-    const pl = +prev.dataset.line,bl = +b.dataset.line;
-    const span = b.offsetTop - prev.offsetTop;
-    const ratio = span > 0 ? (y - prev.offsetTop) / span : 0;
-    return pl + ratio * (bl - pl);
+  for (const cur of a) {
+    if (cur.top <= y) {prev = cur;continue;}
+    if (!prev) return cur.line;
+    const span = cur.top - prev.top;
+    const ratio = span > 0 ? (y - prev.top) / span : 0;
+    return prev.line + ratio * (cur.line - prev.line);
   }
-  return prev ? +prev.dataset.line : 0;
+  return prev ? prev.line : 0;
 }
 function syncFromEditor() {
   if (state.mode !== "split" || scrollSyncing || !state.editor) return;
@@ -788,6 +805,7 @@ function renderPreview() {
     const cls = lang ? ` class="language-${lang}"` : "";
     el.preview.innerHTML = `<pre class="code-file"><code${cls}>${esc(md)}</code></pre>`;
     highlightPreview();
+    invalidatePvAnchors();
     return;
   }
   const { fm, body } = splitFrontmatter(md);
@@ -800,6 +818,7 @@ function renderPreview() {
   html += renderBodyWithAnchors(md, body || "");
   el.preview.innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
   highlightPreview();
+  invalidatePvAnchors();
 }
 // 逐顶层 markdown 块包一层 data-line（源码起始行，0-based），供双屏按行对齐滚动。
 function renderBodyWithAnchors(md, body) {
@@ -854,6 +873,7 @@ function setMode(m) {
     let w = (e.clientX - rect.left) / rect.width * 100;
     w = Math.max(20, Math.min(80, w));
     el.sheetMain.style.setProperty("--split-w", w.toFixed(2) + "%");
+    invalidatePvAnchors();
   });
   window.addEventListener("mouseup", () => {
     if (!dragging) return;
@@ -1042,6 +1062,7 @@ function applyReader() {
   el.fsVal.textContent = state.readerSize;
   el.fontPop.querySelectorAll("[data-ff]").forEach((b) => b.classList.toggle("active", b.dataset.ff === state.readerFont));
   try {localStorage.setItem("sb.readerSize", state.readerSize);localStorage.setItem("sb.readerFont", state.readerFont);} catch {/* ignore */}
+  invalidatePvAnchors();
   if (state.editor) state.editor.refresh();
 }
 
@@ -1679,6 +1700,7 @@ function buildSky() {
 }
 
 /* ---------- boot ---------- */
+window.addEventListener("resize", invalidatePvAnchors, { passive: true });
 (async function boot() {
   buildSky();
   state.favorites = new Set(LS.favorites());
