@@ -34,7 +34,7 @@
 <div id="sky" aria-hidden="true"><div class="sky-stars"></div><div class="sky-stars sky-stars-2"></div><div class="sky-stars sky-stars-3"></div></div>
 <header class="topbar">
   <div class="topbar-left">
-    <button id="sidebarToggle" class="icon-btn" title="收起 / 展开左侧目录" aria-label="收起左侧目录">
+    <button id="sidebarToggle" class="icon-btn" title="收起 / 展开左侧目录" aria-label="收起左侧目录" data-i18n-title="收起 / 展开左侧目录" data-i18n-aria="收起左侧目录">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
     </button>
   <div class="brand">
@@ -45,21 +45,23 @@
   </div>
   </div>
   <div class="topbar-right">
-    <span id="count" class="count-pill" hidden></span>
-    <button id="newSkill" class="btn btn-ghost btn-sm" title="新建 skill">
-      <svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-      <span class="btn-label">新建</span>
+    <button id="langToggle" class="icon-btn" title="切换语言 / Switch language" aria-label="切换语言 / Switch language">
+      <span class="lang-tag">中</span>
     </button>
-    <button id="themeToggle" class="icon-btn" title="切换深色 / 浅色主题" aria-label="切换深色 / 浅色主题">
+    <button id="themeToggle" class="icon-btn" title="切换深色 / 浅色主题" aria-label="切换深色 / 浅色主题" data-i18n-title="切换深色 / 浅色主题" data-i18n-aria="切换深色 / 浅色主题">
       <svg class="ico-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       <svg class="ico-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
     </button>
-    <button id="settings" class="icon-btn" title="设置 AI">
+    <button id="settings" class="icon-btn" title="设置 AI" data-i18n-title="设置 AI">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
     <button id="scan" class="btn btn-primary btn-sm">
       <svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M21 3v6h-6"/></svg>
-      <span class="btn-label">扫描</span>
+      <span class="btn-label" data-i18n="扫描">扫描</span>
+    </button>
+    <button id="newSkill" class="btn btn-ghost btn-sm" title="新建 skill" data-i18n-title="新建 skill">
+      <svg class="ico" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span class="btn-label" data-i18n="新建">新建</span>
     </button>
   </div>
 </header>
@@ -69,8 +71,8 @@
     <div class="sidebar-search">
       <div class="search-wrap" id="searchWrap">
         <svg class="search-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="搜索 skill…" />
-        <button id="clear" class="icon-btn" hidden aria-label="清除搜索">
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="搜索 skill…" data-i18n-ph="搜索 skill…" />
+        <button id="clear" class="icon-btn" hidden aria-label="清除搜索" data-i18n-aria="清除搜索">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
@@ -79,8 +81,8 @@
     <div id="tree" class="tree">
       <div class="empty-hero" id="emptyHero">
         <div class="empty-glow"></div>
-        <h2>欢迎使用 SkillBook</h2>
-        <p>点右上角「扫描」加载本机所有 skill。</p>
+        <h2 data-i18n="欢迎使用 SkillBook">欢迎使用 SkillBook</h2>
+        <p data-i18n="点右上角「扫描」加载本机所有 skill。">点右上角「扫描」加载本机所有 skill。</p>
       </div>
     </div>
   </aside>
@@ -89,7 +91,7 @@
     <div id="detailEmpty" class="detail-empty">
       <div class="empty-glow"></div>
       <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      <p>从左侧选择一个 skill 查看详情</p>
+      <p data-i18n="从左侧选择一个 skill 查看详情">从左侧选择一个 skill 查看详情</p>
     </div>
     <section id="sheet" class="detail" hidden aria-hidden="true">
   <div class="sheet-head">
@@ -101,50 +103,53 @@
       </div>
     </div>
     <div class="seg seg-center" id="modeSeg">
-      <button class="seg-btn active" data-mode="view">浏览</button>
-      <button class="seg-btn" data-mode="edit">编辑</button>
-      <button class="seg-btn" data-mode="split">双屏</button>
+      <button class="seg-btn active" data-mode="view" data-i18n="浏览">浏览</button>
+      <button class="seg-btn" data-mode="edit" data-i18n="编辑">编辑</button>
+      <button class="seg-btn" data-mode="split" data-i18n="双屏">双屏</button>
     </div>
     <div class="sheet-tools">
-      <button id="findBtn" class="icon-btn" title="查找 (⌘F)">
+      <button id="favBtn" class="icon-btn" title="收藏" data-i18n-title="收藏">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+      </button>
+      <button id="findBtn" class="icon-btn" title="查找 (⌘F)" data-i18n-title="查找 (⌘F)">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </button>
-      <button id="reveal" class="icon-btn" title="在 Finder 中打开">
+      <button id="reveal" class="icon-btn" title="在 Finder 中打开" data-i18n-title="在 Finder 中打开">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
       </button>
       <div class="font-ctl">
-        <button id="fontBtn" class="icon-btn" title="阅读字体 / 字号"><span class="aa">Aa</span></button>
+        <button id="fontBtn" class="icon-btn" title="阅读字体 / 字号" data-i18n-title="阅读字体 / 字号"><span class="aa">Aa</span></button>
         <div id="fontPop" class="font-pop" hidden>
-          <div class="fp-row"><span class="fp-lbl">字号</span>
-            <div class="fp-step"><button data-fs="-" aria-label="减小">−</button><span id="fsVal">15</span><button data-fs="+" aria-label="增大">＋</button></div>
+          <div class="fp-row"><span class="fp-lbl" data-i18n="字号">字号</span>
+            <div class="fp-step"><button data-fs="-" aria-label="减小" data-i18n-aria="减小">−</button><span id="fsVal">15</span><button data-fs="+" aria-label="增大" data-i18n-aria="增大">＋</button></div>
           </div>
-          <div class="fp-row"><span class="fp-lbl">字体</span>
-            <div class="fp-fonts"><button data-ff="sans">默认</button><button data-ff="serif">衬线</button><button data-ff="mono">等宽</button></div>
+          <div class="fp-row"><span class="fp-lbl" data-i18n="字体">字体</span>
+            <div class="fp-fonts"><button data-ff="sans" data-i18n="默认">默认</button><button data-ff="serif" data-i18n="衬线">衬线</button><button data-ff="mono" data-i18n="等宽">等宽</button></div>
           </div>
         </div>
       </div>
-      <button id="aiOptimize" class="btn btn-ai btn-sm" title="用 AI 优化这份 skill">
+      <button id="aiOptimize" class="btn btn-ai btn-sm" title="用 AI 优化这份 skill" data-i18n-title="用 AI 优化这份 skill">
         <svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
-        <span class="btn-label">AI 优化</span>
+        <span class="btn-label" data-i18n="AI 优化">AI 优化</span>
       </button>
       <button id="save" class="btn btn-primary btn-sm">
         <svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
-        <span class="btn-label">保存</span>
+        <span class="btn-label" data-i18n="保存">保存</span>
       </button>
       <span id="dirty" class="dirty-dot" hidden>●</span>
-      <button id="deleteSkill" class="icon-btn icon-btn-danger" title="删除（移到废纸篓）" aria-label="删除该 skill">
+      <button id="deleteSkill" class="icon-btn icon-btn-danger" title="删除（移到废纸篓）" aria-label="删除该 skill" data-i18n-title="删除（移到废纸篓）" data-i18n-aria="删除该 skill">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
     </div>
   </div>
   <div id="sheetPath" class="sheet-path"></div>
-  <div class="sheet-body">
+  <div class="sheet-body" id="sheetBody">
     <div id="fileTree" class="file-tree"></div>
     <div class="sheet-main" id="sheetMain">
       <div id="editorWrap" class="sheet-editor" hidden><textarea id="ed"></textarea></div>
-      <div id="splitGutter" class="split-gutter" hidden title="拖拽调整左右宽度" aria-label="拖拽调整宽度"></div>
+      <div id="splitGutter" class="split-gutter" hidden title="拖拽调整左右宽度" aria-label="拖拽调整宽度" data-i18n-title="拖拽调整左右宽度" data-i18n-aria="拖拽调整宽度"></div>
       <div id="preview" class="md-preview"></div>
-      <div id="binaryNote" class="binary-note" hidden>二进制 / 超大文件，不支持在此编辑。</div>
+      <div id="binaryNote" class="binary-note" hidden data-i18n="二进制 / 超大文件，不支持在此编辑。">二进制 / 超大文件，不支持在此编辑。</div>
     </div>
   </div>
     </section>
@@ -156,28 +161,28 @@
 
 <!-- 设置 -->
 <div id="settingsModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="AI 设置">
-  <div class="modal-head"><h3>AI 设置</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 data-i18n="AI 设置">AI 设置</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="modal-body">
     <label class="field"><span>Provider</span>
       <select id="cfgProvider">
-        <option value="openai">OpenAI 兼容（DeepSeek / OpenAI / Codex / Ollama）</option>
-        <option value="anthropic">Anthropic（Claude）</option>
+        <option value="openai" data-i18n="OpenAI 兼容（DeepSeek / OpenAI / Codex / Ollama）">OpenAI 兼容（DeepSeek / OpenAI / Codex / Ollama）</option>
+        <option value="anthropic" data-i18n="Anthropic（Claude）">Anthropic（Claude）</option>
       </select></label>
-    <label class="field"><span>Base URL <i>可留空用默认</i></span>
+    <label class="field"><span>Base URL <i data-i18n="可留空用默认">可留空用默认</i></span>
       <input id="cfgBaseURL" placeholder="https://api.deepseek.com" /></label>
     <label class="field"><span>Model</span>
       <input id="cfgModel" placeholder="deepseek-chat" /></label>
     <label class="field"><span>API Key <i id="keyHint"></i></span>
-      <input id="cfgKey" type="password" placeholder="留空则不修改已存的 key" /></label>
-    <div class="modal-note">key 仅保存在本机 <code>~/.skillbook/config.json</code>，不会上传、不回显。</div>
+      <input id="cfgKey" type="password" placeholder="留空则不修改已存的 key" data-i18n-ph="留空则不修改已存的 key" /></label>
+    <div class="modal-note" data-i18n="key 仅保存在本机 ~/.skillbook/config.json，不会上传、不回显。">key 仅保存在本机 <code>~/.skillbook/config.json</code>，不会上传、不回显。</div>
   </div>
   <div class="modal-foot">
-    <button id="cfgTest" class="btn btn-ghost">测试连接</button>
-    <button id="editOptimizer" class="btn btn-ghost">编辑优化规则</button>
-    <button id="openBackup" class="btn btn-ghost">备份与同步</button>
+    <button id="cfgTest" class="btn btn-ghost" data-i18n="测试连接">测试连接</button>
+    <button id="editOptimizer" class="btn btn-ghost" data-i18n="编辑优化规则">编辑优化规则</button>
+    <button id="openBackup" class="btn btn-ghost" data-i18n="备份与同步">备份与同步</button>
     <span id="cfgStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
-    <button id="cfgSave" class="btn btn-primary">保存</button>
+    <button id="cfgSave" class="btn btn-primary" data-i18n="保存">保存</button>
   </div>
 </div>
 
@@ -185,115 +190,115 @@
 <div id="newModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="新建 skill">
   <div class="modal-head">
     <div class="seg" id="newModeSeg">
-      <button class="seg-btn active" data-nmode="create">新建</button>
-      <button class="seg-btn" data-nmode="import">从 GitHub 导入</button>
+      <button class="seg-btn active" data-nmode="create" data-i18n="新建">新建</button>
+      <button class="seg-btn" data-nmode="import" data-i18n="从 GitHub 导入">从 GitHub 导入</button>
     </div>
     <button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
   </div>
   <div class="modal-body">
     <div id="newCreateFields">
-      <label class="field"><span>名称 <i>小写字母、数字、连字符</i></span>
+      <label class="field"><span><span data-i18n="名称">名称</span> <i data-i18n="小写字母、数字、连字符">小写字母、数字、连字符</i></span>
         <input id="newName" placeholder="my-skill" /></label>
-      <label class="field"><span>创建配方</span>
+      <label class="field"><span data-i18n="创建配方">创建配方</span>
         <select id="newRecipe"></select></label>
-      <label class="field"><span>一句话描述（大白话）</span>
-        <textarea id="newBrief" rows="3" placeholder="描述这个 skill 要做什么，AI 会据此生成初稿…"></textarea></label>
+      <label class="field"><span data-i18n="一句话描述（大白话）">一句话描述（大白话）</span>
+        <textarea id="newBrief" rows="3" placeholder="描述这个 skill 要做什么，AI 会据此生成初稿…" data-i18n-ph="描述这个 skill 要做什么，AI 会据此生成初稿…"></textarea></label>
       <div class="modal-note" id="newAiHint"></div>
     </div>
     <div id="newImportFields" hidden>
-      <label class="field"><span>GitHub 链接 <i>仓库 / tree 子目录 / blob 文件</i></span>
+      <label class="field"><span><span data-i18n="GitHub 链接">GitHub 链接</span> <i data-i18n="仓库 / tree 子目录 / blob 文件">仓库 / tree 子目录 / blob 文件</i></span>
         <input id="importUrl" placeholder="https://github.com/owner/repo/tree/main/skills/foo" /></label>
-      <label class="field"><span>本地名称 <i>留空则用仓库/目录名</i></span>
-        <input id="importName" placeholder="可选" /></label>
-      <div class="modal-note">克隆公共仓库的该 skill 目录到 <code>~/.claude/skills</code>，并自动填好来源链接。仅支持 github.com。</div>
+      <label class="field"><span><span data-i18n="本地名称">本地名称</span> <i data-i18n="留空则用仓库/目录名">留空则用仓库/目录名</i></span>
+        <input id="importName" placeholder="可选" data-i18n-ph="可选" /></label>
+      <div class="modal-note" data-i18n="克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。">克隆公共仓库的该 skill 目录到 <code>~/.claude/skills</code>，并自动填好来源链接。仅支持 github.com。</div>
     </div>
   </div>
   <div class="modal-foot">
     <span id="newStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
-    <button id="newCreate" class="btn btn-primary">创建</button>
-    <button id="newImport" class="btn btn-primary" hidden>导入</button>
+    <button id="newCreate" class="btn btn-primary" data-i18n="创建">创建</button>
+    <button id="newImport" class="btn btn-primary" hidden data-i18n="导入">导入</button>
   </div>
 </div>
 
 <!-- AI diff -->
 <div id="diffModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="AI 优化对比">
-  <div class="modal-head"><h3>AI 优化 · 并排对比</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 data-i18n="AI 优化 · 并排对比">AI 优化 · 并排对比</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="diff-body">
-    <div class="diff-pane"><div class="diff-label" id="diffOldLabel">原文</div><pre id="diffOld" class="diff-pre"></pre></div>
-    <div class="diff-pane"><div class="diff-label" id="diffNewLabel">AI 优化稿</div><pre id="diffNew" class="diff-pre diff-new"></pre></div>
+    <div class="diff-pane"><div class="diff-label" id="diffOldLabel" data-i18n="原文">原文</div><pre id="diffOld" class="diff-pre"></pre></div>
+    <div class="diff-pane"><div class="diff-label" id="diffNewLabel" data-i18n="AI 优化稿">AI 优化稿</div><pre id="diffNew" class="diff-pre diff-new"></pre></div>
   </div>
   <div class="modal-foot">
     <div class="toolbar-spacer"></div>
-    <button id="diffDiscard" class="btn btn-ghost">放弃</button>
-    <button id="diffApply" class="btn btn-primary">应用到编辑器</button>
+    <button id="diffDiscard" class="btn btn-ghost" data-i18n="放弃">放弃</button>
+    <button id="diffApply" class="btn btn-primary" data-i18n="应用到编辑器">应用到编辑器</button>
   </div>
 </div>
 
 <!-- 重复/冲突管理 -->
 <div id="groupsModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="重复与冲突管理">
-  <div class="modal-head"><h3 id="groupsTitle">管理</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 id="groupsTitle" data-i18n="管理">管理</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="groups-sub" id="groupsSub"></div>
   <div class="groups-body" id="groupsBody"></div>
   <div class="modal-foot">
     <span id="groupsSel" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
-    <button id="grpCompare" class="btn btn-ghost" hidden>并排对比</button>
-    <button id="grpLocate" class="btn btn-ghost">定位选中</button>
-    <button id="grpTrash" class="btn btn-danger">移到废纸篓</button>
+    <button id="grpCompare" class="btn btn-ghost" hidden data-i18n="并排对比">并排对比</button>
+    <button id="grpLocate" class="btn btn-ghost" data-i18n="定位选中">定位选中</button>
+    <button id="grpTrash" class="btn btn-danger" data-i18n="移到废纸篓">移到废纸篓</button>
   </div>
 </div>
 
 <!-- 来源编辑 -->
 <div id="sourceModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="来源">
-  <div class="modal-head"><h3>来源链接</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 data-i18n="来源链接">来源链接</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="modal-body" id="sourceModalBody"></div>
 </div>
 
 <!-- AI 优化建议 -->
 <div id="optimizeModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="AI 优化建议">
-  <div class="modal-head"><h3 id="optTitle">AI 优化建议</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 id="optTitle" data-i18n="AI 优化建议">AI 优化建议</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="opt-sub" id="optSub"></div>
   <div class="opt-body" id="optBody"></div>
   <div class="modal-foot">
-    <button id="optAll" class="btn btn-ghost btn-sm">全采纳</button>
-    <button id="optNone" class="btn btn-ghost btn-sm">全不采纳</button>
+    <button id="optAll" class="btn btn-ghost btn-sm" data-i18n="全采纳">全采纳</button>
+    <button id="optNone" class="btn btn-ghost btn-sm" data-i18n="全不采纳">全不采纳</button>
     <span id="optSel" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
-    <button id="optApply" class="btn btn-primary">应用采纳项</button>
+    <button id="optApply" class="btn btn-primary" data-i18n="应用采纳项">应用采纳项</button>
   </div>
 </div>
 
 <!-- 优化规则编辑 -->
 <div id="optimizerModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="优化规则">
-  <div class="modal-head"><h3>优化规则（AI 评审依据）</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 data-i18n="优化规则（AI 评审依据）">优化规则（AI 评审依据）</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="opt-rule-editor"><textarea id="optimizerEd"></textarea></div>
   <div class="modal-foot">
-    <span class="src-mut">保存在本机 <code>~/.skillbook/optimizer.md</code></span>
+    <span class="src-mut" data-i18n="保存在本机 ~/.skillbook/optimizer.md">保存在本机 <code>~/.skillbook/optimizer.md</code></span>
     <div class="toolbar-spacer"></div>
-    <button id="optimizerSave" class="btn btn-primary">保存规则</button>
+    <button id="optimizerSave" class="btn btn-primary" data-i18n="保存规则">保存规则</button>
   </div>
 </div>
 
 <!-- GitHub 备份与恢复 -->
 <div id="backupModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="备份与同步">
-  <div class="modal-head"><h3>备份与同步</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-head"><h3 data-i18n="备份与同步">备份与同步</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="modal-body">
-    <div class="backup-status" id="backupStatus">未配置</div>
-    <label class="field"><span>备份仓库 <i>私有仓库，需先在 GitHub 建好</i></span>
+    <div class="backup-status" id="backupStatus" data-i18n="未配置">未配置</div>
+    <label class="field"><span><span data-i18n="备份仓库">备份仓库</span> <i data-i18n="私有仓库，需先在 GitHub 建好">私有仓库，需先在 GitHub 建好</i></span>
       <input id="bkRepo" placeholder="https://github.com/you/skill-backup" /></label>
-    <label class="field"><span>分支 <i>默认 main</i></span>
+    <label class="field"><span><span data-i18n="分支">分支</span> <i data-i18n="默认 main">默认 main</i></span>
       <input id="bkBranch" placeholder="main" /></label>
     <label class="field"><span>GitHub Token <i id="bkTokenHint"></i></span>
-      <input id="bkToken" type="password" placeholder="留空则不修改已存的 token" /></label>
-    <div class="modal-note">备份范围：<code>~/.claude/skills</code> 与 <code>~/.codex/skills</code>。Token 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 <code>repo</code> scope。</div>
+      <input id="bkToken" type="password" placeholder="留空则不修改已存的 token" data-i18n-ph="留空则不修改已存的 token" /></label>
+    <div class="modal-note" data-i18n="备份范围：~/.claude/skills 与 ~/.codex/skills。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。">备份范围：<code>~/.claude/skills</code> 与 <code>~/.codex/skills</code>。Token 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 <code>repo</code> scope。</div>
   </div>
   <div class="modal-foot">
-    <button id="bkSave" class="btn btn-ghost">保存配置</button>
-    <button id="bkRestore" class="btn btn-danger">从备份恢复</button>
+    <button id="bkSave" class="btn btn-ghost" data-i18n="保存配置">保存配置</button>
+    <button id="bkRestore" class="btn btn-danger" data-i18n="从备份恢复">从备份恢复</button>
     <span id="bkStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
-    <button id="bkPush" class="btn btn-primary">立即备份</button>
+    <button id="bkPush" class="btn btn-primary" data-i18n="立即备份">立即备份</button>
   </div>
 </div>
 

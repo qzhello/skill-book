@@ -96,6 +96,9 @@ body{
 #themeToggle .ico-sun{display:none}
 :root[data-theme="dark"] #themeToggle .ico-sun{display:block}
 :root[data-theme="dark"] #themeToggle .ico-moon{display:none}
+/* 语言切换：地球图标 + 当前语言小标 */
+#langToggle{gap:3px;width:auto;min-width:36px;padding:0 7px}
+#langToggle .lang-tag{font-size:11px;font-weight:700;letter-spacing:.02em}
 /* 危险操作（删除）：与常规图标按钮区分，hover 显红 */
 .icon-btn-danger{margin-left:4px}
 .icon-btn-danger:hover{color:var(--danger);background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.30)}
@@ -158,6 +161,14 @@ body{
 .ti-flag.dup{color:var(--muted);background:var(--surface-2)}
 .ti-time{flex-shrink:0;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .tree-item.active .ti-time{color:var(--accent-strong)}
+/* 收藏星标：默认隐藏，悬停行显现；已收藏金色填充 */
+.ti-star{flex-shrink:0;display:inline-flex;align-items:center;margin-left:2px;color:var(--muted);opacity:0;cursor:pointer;border-radius:6px;padding:1px;transition:opacity var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
+.tree-item:hover .ti-star{opacity:.55}
+.ti-star:hover{opacity:1;color:#F5B301}
+.ti-star.on{opacity:1;color:#F5B301}
+.ti-star.on svg{fill:#F5B301}
+#favBtn.on{color:#F5B301}
+#favBtn.on svg{fill:#F5B301}
 /* 扁平搜索结果项（按相关性，不分组） */
 .tree-flat{display:flex;flex-direction:column;gap:1px;padding-top:2px}
 .tree-item.flat{flex-direction:column;align-items:stretch;gap:3px;padding:7px 10px}
@@ -377,7 +388,17 @@ body{
 
 /* ---------- Sheet: file tree + fullscreen + selection ---------- */
 .sheet-body{display:flex;gap:0}
-.file-tree{width:200px;flex-shrink:0;overflow:auto;border-right:1px solid var(--line);padding:8px;background:var(--surface)}
+.file-tree{width:200px;flex-shrink:0;overflow:auto;border-right:1px solid var(--line);padding:8px;background:var(--surface);transition:width var(--dur) var(--ease)}
+/* 文件目录表头 + 收起/展开按钮 */
+.ft-head{display:flex;justify-content:flex-end;align-items:center;padding:0 2px 6px;margin-bottom:6px;border-bottom:1px solid var(--line-soft)}
+.ft-collapse{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;transition:all var(--dur) var(--ease)}
+.ft-collapse:hover{color:var(--accent);background:var(--surface-2);border-color:var(--line)}
+.ft-collapse svg{transition:transform var(--dur) var(--ease)}
+/* 收起态：缩成窄条，仅留展开按钮 */
+.sheet-body.ft-collapsed .file-tree{width:40px;padding:8px 6px;overflow:hidden}
+.sheet-body.ft-collapsed .file-tree .ft-row{display:none}
+.sheet-body.ft-collapsed .ft-head{justify-content:center;border-bottom:none;margin-bottom:0}
+.sheet-body.ft-collapsed .ft-collapse svg{transform:scaleX(-1)}
 .sheet-main{flex:1;min-width:0;display:flex;position:relative}
 .ft-row{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;font-size:12.5px;color:var(--text-dim);cursor:pointer;white-space:nowrap;overflow:hidden;
   transition:background var(--dur-fast) var(--ease),color var(--dur-fast) var(--ease)}
