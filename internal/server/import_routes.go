@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -79,7 +80,8 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	destDir := filepath.Join(home, ".claude", "skills", name)
+	destPlat := s.defaultPlatform()
+	destDir := filepath.Join(home, "."+destPlat, "skills", name)
 	if _, err := os.Stat(destDir); err == nil {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "该 skill 已存在"})
 		return
@@ -161,7 +163,7 @@ func (s *Server) importFromClone(cloneRoot, subpath, name, destDir, srcURL, ref 
 		mtime = info.ModTime().Unix()
 	}
 	sk := model.Skill{
-		Source: model.SourceUser, Platform: model.PlatformClaude, Dir: destDir, FilePath: destMD,
+		Source: model.SourceUser, Platform: model.Platform(platformFromSkillDir(destDir)), Dir: destDir, FilePath: destMD,
 		Name: pname, Description: desc, Body: string(content),
 		BodyHash: model.HashBody(string(content)), MTime: mtime,
 	}
@@ -213,11 +215,12 @@ func (s *Server) handleSourceCheck(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": perr.Error()})
 		return
 	}
-	rawURL := s.rawBase(githubsrc.RawSkillURL(owner, repo, src.SourceRef, src.SourceSubpath))
+	token := loadSourceToken()
+	rawURL := s.upstreamSkillURL(owner, repo, src.SourceRef, src.SourceSubpath, token)
 
-	remote, ferr := fetchRaw(r.Context(), rawURL)
+	remote, ferr := fetchRaw(r.Context(), rawURL, token)
 	if ferr != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "抓取上游失败"})
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": fetchFailMessage(rawURL, ferr, token != "")})
 		return
 	}
 	remoteHash := model.HashBody(remote)
@@ -244,46 +247,90 @@ func (s *Server) handleSourceApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Content string `json:"content"`
+		Content string   `json:"content"`
+		Targets []string `json:"targets"` // 安装到哪些平台：claude/codex；空则沿用该 skill 当前所在文件
 	}
 	if !readJSONBody(w, r, &body) {
 		return
 	}
 
-	// 可恢复：若不在 git 工作树内，先把现有 SKILL.md 备份为同目录 .bak。
-	if !insideGitWorktree(sk.Dir) {
-		if existing, err := os.ReadFile(sk.FilePath); err == nil {
-			bak := sk.FilePath + ".bak"
-			if err := os.WriteFile(bak, existing, 0o644); err != nil {
-				log.Printf("apply: 备份 %s 失败: %v（仍继续覆写）", bak, err)
-			}
+	targets := sanitizeTargetList(body.Targets)
+	// 无目标：保持旧行为，原地覆写该 skill 自身的 SKILL.md。
+	if len(targets) == 0 {
+		if err := s.writeSkillFile(sk.Dir, sk.FilePath, sk.Source, sk.Platform, body.Content); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
 		}
-	}
-
-	// editor.Save 提供越界防护；在 git 内则提交。repoRoot 用 skill 目录父级。
-	ed := editor.New(filepath.Dir(sk.Dir))
-	if err := ed.Save(sk.FilePath, body.Content); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		_ = s.st.SetSourceUpdateFlag(id, false, time.Now().Unix())
+		writeJSON(w, http.StatusOK, map[string]any{"status": "applied", "installed": []string{string(sk.Platform)}})
 		return
 	}
 
-	content, _ := os.ReadFile(sk.FilePath)
-	name, desc, _ := scanner.ParseFrontmatter(content)
+	// 有目标：写到每个所选平台的用户级目录 ~/.<plat>/skills/<name>/SKILL.md（可新建）。
+	home, _ := os.UserHomeDir()
+	name, _, _ := scanner.ParseFrontmatter([]byte(body.Content))
 	if name == "" {
 		name = filepath.Base(sk.Dir)
 	}
+	installed := []string{}
+	for _, plat := range targets {
+		dir := filepath.Join(home, "."+plat, "skills", name)
+		file := filepath.Join(dir, "SKILL.md")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := s.writeSkillFile(dir, file, model.SourceUser, model.Platform(plat), body.Content); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		installed = append(installed, plat)
+	}
+	_ = s.st.SetSourceUpdateFlag(id, false, time.Now().Unix())
+	writeJSON(w, http.StatusOK, map[string]any{"status": "applied", "installed": installed})
+}
+
+// sanitizeTargetList 仅保留合法平台 id（可插拔，见 platformIDRe）并去重。
+func sanitizeTargetList(in []string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, p := range in {
+		p = strings.TrimSpace(p)
+		if platformIDRe.MatchString(p) && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// writeSkillFile 写入（覆盖）一个 SKILL.md：非 git 树先存 .bak、越界防护、并重新入库。
+func (s *Server) writeSkillFile(dir, file string, source model.Source, platform model.Platform, content string) error {
+	if !insideGitWorktree(dir) {
+		if existing, err := os.ReadFile(file); err == nil {
+			if err := os.WriteFile(file+".bak", existing, 0o644); err != nil {
+				log.Printf("apply: 备份 %s 失败: %v（仍继续覆写）", file+".bak", err)
+			}
+		}
+	}
+	ed := editor.New(filepath.Dir(dir))
+	if err := ed.Save(file, content); err != nil {
+		return err
+	}
+	data, _ := os.ReadFile(file)
+	name, desc, _ := scanner.ParseFrontmatter(data)
+	if name == "" {
+		name = filepath.Base(dir)
+	}
 	var mtime int64
-	if info, err := os.Stat(sk.FilePath); err == nil {
+	if info, err := os.Stat(file); err == nil {
 		mtime = info.ModTime().Unix()
 	}
-	updated := model.Skill{Source: sk.Source, Platform: sk.Platform, Dir: sk.Dir, FilePath: sk.FilePath,
-		Name: name, Description: desc, Body: string(content),
-		BodyHash: model.HashBody(string(content)), MTime: mtime}
-	if err := s.st.Upsert(updated); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "applied"})
+	return s.st.Upsert(model.Skill{
+		Source: source, Platform: platform, Dir: dir, FilePath: file,
+		Name: name, Description: desc, Body: string(data),
+		BodyHash: model.HashBody(string(data)), MTime: mtime,
+	})
 }
 
 // rawBase 允许测试用假 raw 服务覆盖默认地址；生产返回原 url。
@@ -294,20 +341,28 @@ func (s *Server) rawBase(u string) string {
 	return u
 }
 
-// fetchRaw 带超时与大小上限地抓取一个 raw url，返回正文。
-func fetchRaw(ctx context.Context, rawURL string) (string, error) {
+// fetchRaw 带超时与大小上限地抓取一个 url，返回正文。
+// token 非空时放进 Authorization 头（用于私有仓库的 Contents API）；
+// 对 api.github.com 还会带上 raw media type 头以返回原始文件内容。
+func fetchRaw(ctx context.Context, rawURL, token string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", err
 	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if strings.Contains(strings.ToLower(rawURL), githubsrc.HostAPI) {
+		req.Header.Set("Accept", "application/vnd.github.raw")
+	}
 	client := &http.Client{
 		Timeout: fetchTimeout,
 		// 纵深防御：拒绝跳转到非 github 系主机，避免 SSRF。
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
 			h := strings.ToLower(req.URL.Hostname())
-			if h != githubsrc.HostRaw && h != githubsrc.HostGitHub {
+			if h != githubsrc.HostRaw && h != githubsrc.HostGitHub && h != githubsrc.HostAPI {
 				return fmt.Errorf("blocked redirect to non-github host: %s", h)
 			}
 			return nil
@@ -328,7 +383,36 @@ func fetchRaw(ctx context.Context, rawURL string) (string, error) {
 	return string(data), nil
 }
 
+// upstreamSkillURL 根据是否有 token 选择抓取地址：
+// 有 token → Contents API（可读私有仓库）；无 token → 公共 raw 域名。
+// 经 s.rawBase 透传以便测试覆盖。
+func (s *Server) upstreamSkillURL(owner, repo, ref, subpath, token string) string {
+	if token != "" {
+		return s.rawBase(githubsrc.ContentsAPIURL(owner, repo, ref, subpath))
+	}
+	return s.rawBase(githubsrc.RawSkillURL(owner, repo, ref, subpath))
+}
+
 func (e *httpErr) Error() string { return e.msg }
+
+// fetchFailMessage 把抓取失败映射为可诊断的中文信息，并附上实际尝试的 URL。
+// hasToken 表示当前是否已配置来源访问令牌，用于在 404/401/403 时给出不同建议：
+// 未配令牌 → 提示"可能是私有仓库，去设置里配置访问令牌"；已配 → 提示检查令牌权限。
+func fetchFailMessage(rawURL string, err error, hasToken bool) string {
+	var he *httpErr
+	if errors.As(err, &he) {
+		switch he.code {
+		case http.StatusNotFound, http.StatusUnauthorized, http.StatusForbidden:
+			if hasToken {
+				return fmt.Sprintf("无法访问上游（HTTP %d）：已配置访问令牌，请确认该令牌对此仓库有读取权限（repo scope），以及链接/分支/子路径正确。尝试地址：%s", he.code, rawURL)
+			}
+			return fmt.Sprintf("无法访问上游（HTTP %d）：仓库不存在或为私有仓库。若是私有仓库，请到「设置」配置 GitHub 访问令牌后重试；否则检查链接/分支/子路径。尝试地址：%s", he.code, rawURL)
+		default:
+			return fmt.Sprintf("上游返回 HTTP %d。尝试地址：%s", he.code, rawURL)
+		}
+	}
+	return "网络抓取失败：" + err.Error() + "。尝试地址：" + rawURL
+}
 
 // insideGitWorktree 报告 dir 是否在某个 git 工作树内。
 func insideGitWorktree(dir string) bool {

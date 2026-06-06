@@ -33,7 +33,8 @@ func (s *Server) handleNewSkill(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	dir := filepath.Join(home, ".claude", "skills", body.Name)
+	plat := s.defaultPlatform()
+	dir := filepath.Join(home, "."+plat, "skills", body.Name)
 	filePath := filepath.Join(dir, "SKILL.md")
 
 	if _, err := os.Stat(filePath); err == nil {
@@ -58,7 +59,7 @@ func (s *Server) handleNewSkill(w http.ResponseWriter, r *http.Request) {
 		mtime = info.ModTime().Unix()
 	}
 	sk := model.Skill{
-		Source: model.SourceUser, Platform: model.PlatformClaude, Dir: dir, FilePath: filePath,
+		Source: model.SourceUser, Platform: model.Platform(plat), Dir: dir, FilePath: filePath,
 		Name: name, Description: desc, Body: body.Content,
 		BodyHash: model.HashBody(body.Content), MTime: mtime,
 	}

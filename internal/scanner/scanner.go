@@ -4,6 +4,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"skillbook/internal/model"
 )
@@ -64,13 +66,61 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 	return out, nil
 }
 
-// DefaultRoots 返回本机标准来源：仅用户自管理的 skill（用户级 + 项目级）。
-// 不再扫描 ~/.claude/plugins —— 插件 skill 由插件系统管理、只读且大量重复缓存，
-// 是噪声而非用户要治理的对象。Codex 用户级目录存在才会被扫到（ScanRoots 跳过缺失根）。
-func DefaultRoots(home, cwd string) []Root {
-	return []Root{
-		{Path: filepath.Join(home, ".claude", "skills"), Source: model.SourceUser, Platform: model.PlatformClaude},
-		{Path: filepath.Join(cwd, ".claude", "skills"), Source: model.SourceProject, Platform: model.PlatformClaude},
-		{Path: filepath.Join(home, ".codex", "skills"), Source: model.SourceUser, Platform: model.PlatformCodex},
+// DiscoverPlatformIDs 在 base 下查找形如 .<工具>/skills 的目录，返回去掉前导点的
+// 工具 id（如 .claude→claude）。平台不再写死：放进 ~/.<工具>/skills 的工具会被自动发现。
+// 只认含 skills 子目录的点目录，从而把 .config/.cache 等噪声目录排除。
+// 结果按字母序去重；不存在或不可读的 base 返回 nil。
+func DiscoverPlatformIDs(base string) []string {
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil
 	}
+	seen := map[string]bool{}
+	var ids []string
+	for _, e := range entries {
+		name := e.Name()
+		if len(name) < 2 || !strings.HasPrefix(name, ".") {
+			continue
+		}
+		if !e.IsDir() {
+			// 允许软链接到目录：用 Stat 再确认。
+			if info, serr := os.Stat(filepath.Join(base, name)); serr != nil || !info.IsDir() {
+				continue
+			}
+		}
+		skillsDir := filepath.Join(base, name, "skills")
+		if info, serr := os.Stat(skillsDir); serr != nil || !info.IsDir() {
+			continue
+		}
+		id := strings.TrimPrefix(name, ".")
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// discoverRoots 把 base 下发现的每个平台映射为一个带 source 标签的扫描根。
+func discoverRoots(base string, src model.Source) []Root {
+	ids := DiscoverPlatformIDs(base)
+	roots := make([]Root, 0, len(ids))
+	for _, id := range ids {
+		roots = append(roots, Root{
+			Path:     filepath.Join(base, "."+id, "skills"),
+			Source:   src,
+			Platform: model.Platform(id),
+		})
+	}
+	return roots
+}
+
+// DefaultRoots 通过扫描发现本机平台：用户级取 ~/.<工具>/skills，项目级取 <cwd>/.<工具>/skills。
+// 不再写死 claude/codex —— 任何把 skills 放进 .<工具>/skills 的工具都会被自动纳入。
+// 不扫描插件目录（~/.claude/plugins）：插件 skill 只读、重复缓存多，是噪声。
+func DefaultRoots(home, cwd string) []Root {
+	roots := discoverRoots(home, model.SourceUser)
+	roots = append(roots, discoverRoots(cwd, model.SourceProject)...)
+	return roots
 }

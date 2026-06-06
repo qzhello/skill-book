@@ -114,8 +114,23 @@ func sourceResponse(src store.Source, inferred bool) map[string]any {
 	return map[string]any{
 		"source_kind": src.SourceKind, "source_url": src.SourceURL, "source_ref": src.SourceRef,
 		"source_subpath": src.SourceSubpath, "source_rev": src.SourceRev, "source_note": src.SourceNote,
-		"sync_policy": src.SyncPolicy, "inferred": inferred,
+		"sync_policy": src.SyncPolicy, "auto_check": src.AutoCheck, "targets": src.Targets,
+		"has_update": src.HasUpdate, "checked_at": src.CheckedAt, "inferred": inferred,
 	}
+}
+
+// sanitizeTargets 仅保留合法平台 id（可插拔，见 platformIDRe）并去重，结果如 "claude,codex"。
+func sanitizeTargets(in []string) string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, p := range in {
+		p = strings.TrimSpace(p)
+		if platformIDRe.MatchString(p) && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, ",")
 }
 
 // handlePutSource 落库或清除某 skill 的来源。
@@ -131,11 +146,13 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		SourceURL  string `json:"source_url"`
-		SourceKind string `json:"source_kind"`
-		SourceRef  string `json:"source_ref"`
-		SourceNote string `json:"source_note"`
-		SyncPolicy string `json:"sync_policy"`
+		SourceURL  string   `json:"source_url"`
+		SourceKind string   `json:"source_kind"`
+		SourceRef  string   `json:"source_ref"`
+		SourceNote string   `json:"source_note"`
+		SyncPolicy string   `json:"sync_policy"`
+		AutoCheck  bool     `json:"auto_check"`
+		Targets    []string `json:"targets"`
 	}
 	if !readJSONBody(w, r, &body) {
 		return
@@ -161,7 +178,7 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	kind := body.SourceKind
-	if kind == "" {
+	if kind == "" || kind == "unknown" {
 		kind = inferKindFromURL(url)
 	}
 	if !validSourceKinds[kind] {
@@ -169,6 +186,10 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	targets := sanitizeTargets(body.Targets)
+	if targets == "" {
+		targets = string(sk.Platform) // 默认目标 = 该 skill 当前所在平台
+	}
 	src := store.Source{
 		SkillID:    id,
 		SourceKind: kind,
@@ -176,6 +197,8 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		SourceRef:  body.SourceRef,
 		SourceNote: body.SourceNote,
 		SyncPolicy: syncPolicy,
+		AutoCheck:  body.AutoCheck && kind == "github_repo", // 仅 github_repo 支持自动检测
+		Targets:    targets,
 		UpdatedAt:  time.Now().Unix(),
 	}
 	if err := s.st.PutSource(src); err != nil {
@@ -196,12 +219,17 @@ func inferKindFromURL(url string) string {
 	return "manual"
 }
 
-// handleListSources 返回有持久来源行的 skill id 列表。
+// handleListSources 返回有持久来源行的 skill id 列表，以及被标记“有更新”的 id 列表。
 func (s *Server) handleListSources(w http.ResponseWriter, r *http.Request) {
 	ids, err := s.st.LinkedSourceIDs()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"linked": ids})
+	updates, err := s.st.SourcesWithUpdate()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"linked": ids, "updates": updates})
 }

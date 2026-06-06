@@ -169,6 +169,16 @@ body{
 .ti-star.on svg{fill:#F5B301}
 #favBtn.on{color:#F5B301}
 #favBtn.on svg{fill:#F5B301}
+/* 列表“可更新”角标 */
+.ti-upd{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;margin-left:2px;
+  font-size:11px;font-weight:800;line-height:1;color:var(--on-accent);background:var(--accent);border-radius:999px;padding:0 4px}
+/* 来源弹窗：自动检测开关 + 更新目标 */
+.src-check-line{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text);cursor:pointer}
+.src-check-line input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.src-targets{display:flex;align-items:center;gap:14px;margin-top:8px;font-size:12.5px;color:var(--text-dim)}
+.src-targets label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.src-targets input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.src-update-note{color:var(--accent-ink);border:1px solid var(--accent-weak);background:var(--accent-weak);border-radius:8px;padding:8px 10px}
 /* 扁平搜索结果项（按相关性，不分组） */
 .tree-flat{display:flex;flex-direction:column;gap:1px;padding-top:2px}
 .tree-item.flat{flex-direction:column;align-items:stretch;gap:3px;padding:7px 10px}
@@ -277,6 +287,21 @@ body{
 .sheet-title{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
 .sheet-title h3{margin:0;font-size:17px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sheet-badges{display:inline-flex;gap:6px;flex-shrink:0}
+/* 标签 pills + 编辑按钮 */
+.sheet-tags{display:inline-flex;gap:5px;flex-wrap:wrap;align-items:center}
+.tag-pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:500;line-height:1;
+  padding:3px 8px;border-radius:999px;color:var(--accent-ink);background:var(--accent-weak);
+  border:1px solid rgba(124,58,237,.28);text-transform:none}
+.tag-edit-btn{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11.5px;
+  color:var(--text-dim);background:transparent;border:1px dashed var(--line);border-radius:999px;padding:3px 8px}
+.tag-edit-btn:hover{color:var(--accent-ink);border-color:rgba(124,58,237,.4)}
+/* 行内标签（侧栏） */
+.ti-tag{font-size:10.5px;color:var(--accent-ink);background:var(--accent-weak);border-radius:5px;padding:1px 5px;margin-left:4px;text-transform:none}
+/* 顶部分类进度条 */
+.cls-bar{position:relative;height:24px;display:flex;align-items:center;gap:10px;
+  padding:0 16px;background:var(--accent-weak);border-bottom:1px solid rgba(124,58,237,.2);overflow:hidden}
+.cls-bar-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(124,58,237,.18);transition:width .3s ease}
+.cls-bar-text{position:relative;font-size:12px;font-weight:500;color:var(--accent-ink);white-space:nowrap}
 .sheet-tools{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .sheet-path{margin:10px 0 0;font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all}
 .source-box{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 0;padding:9px 11px;

@@ -52,3 +52,56 @@ func TestScanRoots_NameFallsBackToDir(t *testing.T) {
 		t.Fatalf("want fallback name 'no-name', got %+v", got)
 	}
 }
+
+func TestDiscoverPlatformIDs_ScansDotToolSkills(t *testing.T) {
+	home := t.TempDir()
+	// 形如 .<工具>/skills 的目录应被发现
+	for _, tool := range []string{".claude", ".codex", ".agents"} {
+		if err := os.MkdirAll(filepath.Join(home, tool, "skills"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 噪声：点目录但无 skills 子目录 → 忽略
+	if err := os.MkdirAll(filepath.Join(home, ".config", "foo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// 噪声：非点目录即便有 skills → 忽略
+	if err := os.MkdirAll(filepath.Join(home, "projects", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got := DiscoverPlatformIDs(home)
+	want := []string{"agents", "claude", "codex"} // 字母序、去点
+	if len(got) != len(want) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("want %v, got %v", want, got)
+		}
+	}
+}
+
+func TestDefaultRoots_DiscoversUserAndProject(t *testing.T) {
+	home := t.TempDir()
+	cwd := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".cursor", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(cwd, ".claude", "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	roots := DefaultRoots(home, cwd)
+	var sawUserCursor, sawProjectClaude bool
+	for _, r := range roots {
+		if r.Source == model.SourceUser && r.Platform == "cursor" {
+			sawUserCursor = true
+		}
+		if r.Source == model.SourceProject && r.Platform == "claude" {
+			sawProjectClaude = true
+		}
+	}
+	if !sawUserCursor || !sawProjectClaude {
+		t.Fatalf("want user .cursor + project .claude discovered, got %+v", roots)
+	}
+}

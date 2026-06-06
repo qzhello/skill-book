@@ -66,6 +66,11 @@
   </div>
 </header>
 
+<div id="clsBar" class="cls-bar" hidden role="status" aria-live="polite">
+  <div class="cls-bar-fill" id="clsBarFill"></div>
+  <span class="cls-bar-text" id="clsBarText"></span>
+</div>
+
 <main class="workbench" id="workbench">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-search">
@@ -100,6 +105,11 @@
         <h3 id="sheetName"></h3>
         <span id="sheetBadges" class="sheet-badges"></span>
         <button id="sourceChip" class="src-chip" type="button"></button>
+        <span id="sheetTags" class="sheet-tags"></span>
+        <button id="editTags" class="tag-edit-btn" type="button" title="编辑标签" data-i18n-title="编辑标签">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          <span data-i18n="标签">标签</span>
+        </button>
       </div>
     </div>
     <div class="seg seg-center" id="modeSeg">
@@ -174,11 +184,23 @@
       <input id="cfgModel" placeholder="deepseek-chat" /></label>
     <label class="field"><span>API Key <i id="keyHint"></i></span>
       <input id="cfgKey" type="password" placeholder="留空则不修改已存的 key" data-i18n-ph="留空则不修改已存的 key" /></label>
-    <div class="modal-note" data-i18n="key 仅保存在本机 ~/.skillbook/config.json，不会上传、不回显。">key 仅保存在本机 <code>~/.skillbook/config.json</code>，不会上传、不回显。</div>
+    <label class="field"><span data-i18n="自动检测来源更新">自动检测来源更新</span>
+      <select id="cfgSyncInterval">
+        <option value="0" data-i18n="关闭">关闭</option>
+        <option value="360" data-i18n="每 6 小时">每 6 小时</option>
+        <option value="1440" data-i18n="每天">每天</option>
+        <option value="4320" data-i18n="每 3 天">每 3 天</option>
+        <option value="10080" data-i18n="每周">每周</option>
+      </select></label>
+    <label class="field"><span data-i18n="来源访问令牌（私有仓库）">来源访问令牌（私有仓库）</span> <i id="srcTokenHint"></i>
+      <input id="cfgSrcToken" type="password" placeholder="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" data-i18n-ph="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" /></label>
+    <div class="modal-note" data-i18n="key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。">key 与令牌仅保存在本机 <code>~/.skillbook/</code>（0600），不会上传、不回显。</div>
   </div>
   <div class="modal-foot">
     <button id="cfgTest" class="btn btn-ghost" data-i18n="测试连接">测试连接</button>
     <button id="editOptimizer" class="btn btn-ghost" data-i18n="编辑优化规则">编辑优化规则</button>
+    <button id="editClassifier" class="btn btn-ghost" data-i18n="编辑分类规则">编辑分类规则</button>
+    <button id="reclassify" class="btn btn-ghost" data-i18n="全部重新分类">全部重新分类</button>
     <button id="openBackup" class="btn btn-ghost" data-i18n="备份与同步">备份与同步</button>
     <span id="cfgStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
@@ -280,6 +302,16 @@
   </div>
 </div>
 
+<div id="classifierModal" class="modal modal-wide" hidden role="dialog" aria-modal="true" aria-label="分类规则">
+  <div class="modal-head"><h3 data-i18n="分类规则（AI 打标签依据）">分类规则（AI 打标签依据）</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="opt-rule-editor"><textarea id="classifierEd"></textarea></div>
+  <div class="modal-foot">
+    <span class="src-mut" data-i18n="保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。">保存在本机 <code>~/.skillbook/classifier.md</code>；留空恢复默认。<code>{vocab}</code> 会替换为已有标签。</span>
+    <div class="toolbar-spacer"></div>
+    <button id="classifierSave" class="btn btn-primary" data-i18n="保存规则">保存规则</button>
+  </div>
+</div>
+
 <!-- GitHub 备份与恢复 -->
 <div id="backupModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="备份与同步">
   <div class="modal-head"><h3 data-i18n="备份与同步">备份与同步</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
@@ -291,7 +323,7 @@
       <input id="bkBranch" placeholder="main" /></label>
     <label class="field"><span>GitHub Token <i id="bkTokenHint"></i></span>
       <input id="bkToken" type="password" placeholder="留空则不修改已存的 token" data-i18n-ph="留空则不修改已存的 token" /></label>
-    <div class="modal-note" data-i18n="备份范围：~/.claude/skills 与 ~/.codex/skills。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。">备份范围：<code>~/.claude/skills</code> 与 <code>~/.codex/skills</code>。Token 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 <code>repo</code> scope。</div>
+    <div class="modal-note" data-i18n="备份范围：自动发现的各平台用户级 skills 目录。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。">备份范围：自动发现的各平台用户级 skills 目录（<code>~/.&lt;工具&gt;/skills</code>）。Token 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 <code>repo</code> scope。</div>
   </div>
   <div class="modal-foot">
     <button id="bkSave" class="btn btn-ghost" data-i18n="保存配置">保存配置</button>

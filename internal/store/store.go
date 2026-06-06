@@ -33,7 +33,16 @@ CREATE TABLE IF NOT EXISTS skill_sources (
   source_rev     TEXT NOT NULL DEFAULT '',
   source_note    TEXT NOT NULL DEFAULT '',
   sync_policy    TEXT NOT NULL DEFAULT 'none',
+  auto_check     INTEGER NOT NULL DEFAULT 0,
+  targets        TEXT NOT NULL DEFAULT '',
+  has_update     INTEGER NOT NULL DEFAULT 0,
+  checked_at     INTEGER NOT NULL DEFAULT 0,
   updated_at     INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS skill_tags (
+  skill_id   TEXT PRIMARY KEY,
+  tags       TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL DEFAULT 0
 );
 `
 
@@ -50,6 +59,10 @@ func Open(dsn string) (*Store, error) {
 	// 迁移：为升级前创建的旧表补列（已存在则忽略报错）。
 	_, _ = db.Exec(`ALTER TABLE skills ADD COLUMN body_hash TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE skills ADD COLUMN platform TEXT NOT NULL DEFAULT 'claude'`)
+	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN auto_check INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN targets TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN has_update INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN checked_at INTEGER NOT NULL DEFAULT 0`)
 	return &Store{db: db}, nil
 }
 

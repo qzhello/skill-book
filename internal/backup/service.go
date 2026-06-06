@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"skillbook/internal/scanner"
 )
 
 // Runner 执行一次 git 调用：在 dir 下以 env 运行 `git args...`，返回 stdout。
@@ -45,18 +47,23 @@ type Status struct {
 }
 
 // DefaultService 构造默认服务：工作仓库 ~/.skillbook/backup，
-// 备份范围为用户级 ~/.claude/skills 与 ~/.codex/skills。
+// 备份范围为用户级各平台目录（~/.<工具>/skills），平台由扫描自动发现。
+// 未发现任何平台时回退到 ~/.claude/skills，保证总有合理默认范围。
 func DefaultService(home string, run Runner) *Service {
 	if run == nil {
 		run = defaultRunner
 	}
+	srcs := []SrcDir{}
+	for _, id := range scanner.DiscoverPlatformIDs(home) {
+		srcs = append(srcs, SrcDir{Sub: id, Path: filepath.Join(home, "."+id, "skills")})
+	}
+	if len(srcs) == 0 {
+		srcs = []SrcDir{{Sub: "claude", Path: filepath.Join(home, ".claude", "skills")}}
+	}
 	return &Service{
 		WorkDir: filepath.Join(home, ".skillbook", "backup"),
 		Run:     run,
-		Srcs: []SrcDir{
-			{Sub: "claude", Path: filepath.Join(home, ".claude", "skills")},
-			{Sub: "codex", Path: filepath.Join(home, ".codex", "skills")},
-		},
+		Srcs:    srcs,
 	}
 }
 

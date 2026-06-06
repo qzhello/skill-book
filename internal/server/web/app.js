@@ -4,9 +4,24 @@ const I18N = {
   en: {
     // 模态提示（整段，路径以纯文本内联）
     "key 仅保存在本机 ~/.skillbook/config.json，不会上传、不回显。": "Key is stored locally in ~/.skillbook/config.json — never uploaded or echoed back.",
+    "key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。": "Key and token are stored locally in ~/.skillbook/ (0600) — never uploaded or echoed back.",
+    "来源访问令牌（私有仓库）": "Source access token (private repos)",
+    "留空则不修改；私有仓库需 repo 读取权限的 GitHub token": "Leave blank to keep; private repos need a GitHub token with repo read scope",
     "克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。": "Clones that skill directory from the public repo into ~/.claude/skills and fills in the source link. Only github.com is supported.",
     "保存在本机 ~/.skillbook/optimizer.md": "Stored locally in ~/.skillbook/optimizer.md",
-    "备份范围：~/.claude/skills 与 ~/.codex/skills。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。": "Backup scope: ~/.claude/skills and ~/.codex/skills. Token is written only to ~/.skillbook/backup.json (0600) — not echoed, uploaded, or included in backups. Requires a token with repo write scope.",
+    "备份范围：自动发现的各平台用户级 skills 目录。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。": "Backup scope: auto-discovered per-platform user-level skills directories (~/.<tool>/skills). Token is written only to ~/.skillbook/backup.json (0600) — not echoed, uploaded, or included in backups. Requires a token with repo write scope.",
+    // 来源自动检测 / 更新
+    "自动检测来源更新": "Auto-check source updates",
+    "关闭": "Off",
+    "每 6 小时": "Every 6 hours",
+    "每天": "Daily",
+    "每 3 天": "Every 3 days",
+    "每周": "Weekly",
+    "自动检测更新": "Auto-check for updates",
+    "更新目标": "Update target",
+    "检测到上游有更新，点「检查更新」查看并应用。": "Upstream has updates — click “Check for updates” to review and apply.",
+    "有可用更新": "Update available",
+    "可更新": "Updatable",
     // 文件目录收起
     "收起 / 展开文件目录": "Collapse / expand file tree",
     // 收藏
@@ -76,6 +91,11 @@ const I18N = {
     "，不会上传、不回显。": " — never uploaded, never echoed.",
     "测试连接": "Test connection",
     "编辑优化规则": "Edit optimize rules",
+    "编辑分类规则": "Edit tagging rules",
+    "全部重新分类": "Re-tag all",
+    "分类规则（AI 打标签依据）": "Tagging rules (AI labeling basis)",
+    "保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。": "Stored locally in ~/.skillbook/classifier.md; empty restores default. {vocab} is replaced with existing tags.",
+    "已保存分类规则": "Tagging rules saved",
     "备份与同步": "Backup & Sync",
     // 新建模态
     "新建 skill ": "New skill ",
@@ -177,7 +197,16 @@ const I18N = {
     "操作失败": "Operation failed",
     "已保存": "Saved",
     "保存失败": "Save failed",
+    "标签": "Tags",
+    "编辑标签": "Edit tags",
+    "编辑标签（用逗号分隔，最多 8 个）：": "Edit tags (comma-separated, up to 8):",
+    "标签已更新": "Tags updated",
+    "正在自动打标签… {done}/{total}": "Auto-tagging… {done}/{total}",
+    "请先在设置里配置 AI（用于自动打标签）": "Configure AI in Settings first (used for auto-tagging)",
+    "没有需要分类的 skill": "No skills need tagging",
     "这个 skill 还有 {n} 个同名副本。是否把它们同步为当前内容？（被覆盖的 SKILL.md 会存 .bak，可恢复）": "This skill has {n} other copies with the same name. Sync them to the current content? (Overwritten SKILL.md is saved as .bak, recoverable.)",
+    "检测到 {n} 个同名 Skill「{name}」，内容与当前不一致：": "Found {n} same-named skill(s) \"{name}\" whose content differs from the current one:",
+    "是否把它们同步为当前内容？（被覆盖的 SKILL.md 会存 .bak，可恢复）": "Sync them to the current content? (Overwritten SKILL.md is saved as .bak, recoverable.)",
     "已同步 {n} 个副本": "Synced {n} copies",
     "同步失败": "Sync failed",
     "已在 Finder 中打开": "Revealed in Finder",
@@ -231,7 +260,7 @@ const I18N = {
     "备份完成 ✓": "Backup complete ✓",
     "没有变更": "No changes",
     "备份失败": "Backup failed",
-    "将用备份仓库的内容覆盖本地 ~/.claude/skills 与 ~/.codex/skills；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local ~/.claude/skills and ~/.codex/skills with the backup repo; existing directories are moved to Trash first (recoverable). Continue?",
+    "将用备份仓库的内容覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local per-platform skills directories with the backup repo; existing directories are moved to Trash first (recoverable). Continue?",
     "恢复中…": "Restoring…",
     "已恢复": "Restored",
     "恢复失败": "Restore failed",
@@ -324,7 +353,7 @@ function refreshOpenDetailI18n() {
   if (!state.current) return;
   const s = state.current;
   const flag = flagBadge({ conflict: state.conflicts.has(s.name), dup: state.dups.has(s.name), dupCount: state.dupCounts[s.name] || 0 });
-  el.sheetBadges.innerHTML = `${platformBadge(s)}<span class="badge ${s.source}">${t(CAT_LABEL[s.source] || s.source)}</span>${flag}`;
+  el.sheetBadges.innerHTML = `${platformBadge(s)}${flag}`;
   el.sheetPath.textContent = s.file_path + (s.mtime ? `   ·   ${t("更新于 {t}", { t: fmtTime(s.mtime) })}` : "");
   renderSourceChip();
   renderTree();
@@ -340,6 +369,8 @@ const el = {
   detailEmpty: $("#detailEmpty"), sheet: $("#sheet"), sheetName: $("#sheetName"),
   sheetBadges: $("#sheetBadges"), sheetPath: $("#sheetPath"), sheetClose: $("#sheetClose"),
   sourceChip: $("#sourceChip"), sourceModal: $("#sourceModal"), sourceModalBody: $("#sourceModalBody"),
+  sheetTags: $("#sheetTags"), editTags: $("#editTags"),
+  clsBar: $("#clsBar"), clsBarFill: $("#clsBarFill"), clsBarText: $("#clsBarText"),
   editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
   backupModal: $("#backupModal"), backupStatus: $("#backupStatus"), bkRepo: $("#bkRepo"), bkBranch: $("#bkBranch"),
   bkToken: $("#bkToken"), bkTokenHint: $("#bkTokenHint"), bkStatus: $("#bkStatus"),
@@ -347,6 +378,8 @@ const el = {
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
+  editClassifier: $("#editClassifier"), reclassify: $("#reclassify"),
+  classifierModal: $("#classifierModal"), classifierEd: $("#classifierEd"), classifierSave: $("#classifierSave"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"), splitGutter: $("#splitGutter"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetBody: $("#sheetBody"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"), favBtn: $("#favBtn"),
@@ -357,7 +390,8 @@ const el = {
   grpCompare: $("#grpCompare"), grpLocate: $("#grpLocate"), grpTrash: $("#grpTrash"),
   modalScrim: $("#modalScrim"),
   settingsModal: $("#settingsModal"), cfgProvider: $("#cfgProvider"), cfgBaseURL: $("#cfgBaseURL"),
-  cfgModel: $("#cfgModel"), cfgKey: $("#cfgKey"), keyHint: $("#keyHint"),
+  cfgModel: $("#cfgModel"), cfgKey: $("#cfgKey"), keyHint: $("#keyHint"), cfgSyncInterval: $("#cfgSyncInterval"),
+  cfgSrcToken: $("#cfgSrcToken"), srcTokenHint: $("#srcTokenHint"),
   cfgTest: $("#cfgTest"), cfgStatus: $("#cfgStatus"), cfgSave: $("#cfgSave"),
   newModal: $("#newModal"), newName: $("#newName"), newRecipe: $("#newRecipe"),
   newBrief: $("#newBrief"), newAiHint: $("#newAiHint"), newStatus: $("#newStatus"), newCreate: $("#newCreate"),
@@ -370,12 +404,49 @@ const el = {
 };
 
 const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
-const PLATFORM_LABEL = { claude: "Claude", codex: "Codex" };
-const CHIP_LABEL = { user: "用户级", project: "项目级", plugin: "插件", claude: "Claude", codex: "Codex", conflict: "冲突", dup: "重复", linked: "有来源", unlinked: "无来源" };
+// 平台可插拔：claude/codex 不再写死，由 /api/platforms 扫描发现。
+// claude/codex 保留 CSS 专属配色，其余平台用 platColor 派生稳定色。
+const PLAT_FIXED_COLOR = { claude: "#e09a6a", codex: "#7aa8ff" };
+const PLAT_PALETTE = ["#8b7ff0", "#5bbf9a", "#e0707a", "#d9a441", "#5bb6c9", "#c97ad9", "#6f9bd8", "#cf8a5b"];
+// platLabel 返回平台展示名：优先后端给的 label，回退已知名，再回退首字母大写。
+function platLabel(id) {
+  if (!id) return "";
+  const f = (state.platforms || []).find((p) => p.id === id);
+  if (f && f.label) return f.label;
+  if (id === "claude") return "Claude";
+  if (id === "codex") return "Codex";
+  return id[0].toUpperCase() + id.slice(1);
+}
+// platColor 为未知平台从调色板派生稳定颜色（同 id 永远同色）。
+function platColor(id) {
+  if (!id) return "#9aa0aa";
+  if (PLAT_FIXED_COLOR[id]) return PLAT_FIXED_COLOR[id];
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PLAT_PALETTE[h % PLAT_PALETTE.length];
+}
+const isKnownPlat = (id) => id === "claude" || id === "codex";
+// platIds 返回参与渲染的平台顺序：后端发现的（claude 优先）+ 数据里出现但未列出的兜底。
+function platIds() {
+  const ids = (state.platforms || []).map((p) => p.id);
+  for (const s of state.all) {
+    if (s.platform && !ids.includes(s.platform)) ids.push(s.platform);
+  }
+  return ids;
+}
 function platformBadge(s) {
   const p = s && s.platform;
-  if (!p || !PLATFORM_LABEL[p]) return "";
-  return `<span class="badge plat-${p}" title="${t("平台：{p}", { p: PLATFORM_LABEL[p] })}">${PLATFORM_LABEL[p]}</span>`;
+  if (!p) return "";
+  const label = platLabel(p);
+  const title = t("平台：{p}", { p: label });
+  if (isKnownPlat(p)) return `<span class="badge plat-${p}" title="${title}">${label}</span>`;
+  const c = platColor(p);
+  return `<span class="badge" style="color:${c};border-color:${c}66;background:${c}1f;text-transform:none" title="${title}">${label}</span>`;
+}
+// platDot 渲染左侧树/行内的平台小圆点（已知平台走 CSS，其余内联色）。
+function platDot(p, title) {
+  if (isKnownPlat(p)) return `<span class="plat-dot plat-${p}" title="${title || ""}"></span>`;
+  return `<span class="plat-dot" style="background:${platColor(p)}" title="${title || ""}"></span>`;
 }
 function relTime(unix) {
   if (!unix) return "";
@@ -393,11 +464,11 @@ function relTime(unix) {
 const CAT_ORDER = ["user", "project"]; // plugin 已弃用：不扫描、不展示
 
 const state = {
-  all: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
+  all: [], platforms: [], conflicts: new Set(), dups: new Set(), dupCounts: {},
   scanned: false, query: "", cat: "all", view: [], cursor: -1, treeCollapsed: new Set(),
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
-  collapsed: new Set(), linkedSources: new Set(), source: null, sourceEditing: false,
+  collapsed: new Set(), linkedSources: new Set(), updates: new Set(), source: null, sourceEditing: false,
   favorites: new Set(), fileTreeCollapsed: false,
   diffMode: "ai", pendingUpdate: null,
   groupKind: "dup", groupSel: new Set(),
@@ -440,6 +511,7 @@ const J = (r) => r.json();
 const API = {
   scan: () => fetch("/api/scan", { method: "POST" }).then(J),
   all: () => fetch("/api/skills").then(J),
+  platforms: () => fetch("/api/platforms").then(J),
   get: (id) => fetch("/api/skills/" + id).then(J),
   save: (id, content) => fetch("/api/skills/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
   config: () => fetch("/api/config").then(J),
@@ -461,9 +533,18 @@ const API = {
   sources: () => fetch("/api/sources").then(J),
   importSkill: (url, name) => fetch("/api/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, name }) }),
   checkSource: (id) => fetch("/api/skills/" + id + "/source/check", { method: "POST" }),
-  applySource: (id, content) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
+  applySource: (id, content, targets) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, targets }) }),
+  getSyncConfig: () => fetch("/api/sync-config").then(J),
+  getSourceAuth: () => fetch("/api/source-auth").then(J),
+  putSourceAuth: (body) => fetch("/api/source-auth", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+  classify: (force) => fetch("/api/tags/classify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) }),
+  classifyStatus: () => fetch("/api/tags/classify/status").then(J),
+  setTags: (id, tags) => fetch("/api/skills/" + id + "/tags", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags }) }),
+  putSyncConfig: (c) => fetch("/api/sync-config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }),
   getOptimizer: () => fetch("/api/optimizer").then(J),
   putOptimizer: (content) => fetch("/api/optimizer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
+  getClassifier: () => fetch("/api/classifier").then(J),
+  putClassifier: (content) => fetch("/api/classifier", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
   backupConfig: () => fetch("/api/backup/config").then(J),
   backupStatus: () => fetch("/api/backup/status").then(J),
   putBackupConfig: (c) => fetch("/api/backup/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }),
@@ -474,21 +555,26 @@ const API = {
 /* ---------- data load ---------- */
 async function doScan() {
   el.scan.classList.add("loading");el.scan.disabled = true;
-  try {const d = await API.scan();await loadAll();toast(t("扫描完成 · {n} 个 skill", { n: d.count ?? 0 }));}
+  try {
+    const d = await API.scan();await loadAll();toast(t("扫描完成 · {n} 个 skill", { n: d.count ?? 0 }));
+    startClassify(false, true); // 扫描后自动为未分类的 skill 打标签（AI 未配置则静默跳过）
+  }
   catch {toast(t("扫描失败"), "err");} finally
   {el.scan.classList.remove("loading");el.scan.disabled = false;}
 }
 async function loadAll() {
   const data = await API.all();
+  try {const pd = await API.platforms();state.platforms = pd.platforms || [];state.defaultPlatform = pd.default || "claude";} catch {state.platforms = [];}
   state.conflicts = new Set(data.conflicts || []);
   state.dups = new Set(data.dups || []);
   state.dupCounts = data.dupCounts || {};
   state.all = (data.skills || []).map((s) => ({
     ...s, nameLower: (s.name || "").toLowerCase(), descLower: (s.description || "").toLowerCase(),
+    tagText: (s.tags || []).join(" ").toLowerCase(),
     conflict: state.conflicts.has(s.name), dup: state.dups.has(s.name), dupCount: state.dupCounts[s.name] || 0
   }));
   state.scanned = state.all.length > 0;
-  try {const sd = await API.sources();state.linkedSources = new Set(sd.linked || []);} catch {state.linkedSources = new Set();}
+  try {const sd = await API.sources();state.linkedSources = new Set(sd.linked || []);state.updates = new Set(sd.updates || []);} catch {state.linkedSources = new Set();state.updates = new Set();}
   renderChips();render();
 }
 
@@ -499,18 +585,21 @@ function scoreOf(s, q) {
   if (n.startsWith(q)) return 1;
   if (n.split(/[-_ ./]+/).some((w) => w.startsWith(q))) return 2;
   if (n.includes(q)) return 3;
-  if (s.descLower.includes(q)) return 4;
+  if ((s.tagText || "").includes(q)) return 4;
+  if (s.descLower.includes(q)) return 5;
   return -1;
 }
 function compute() {
   const q = state.query.trim().toLowerCase();
   let base = state.all;
   if (state.cat === "fav") base = base.filter((s) => state.favorites.has(s.id));else
+  if (state.cat === "update") base = base.filter((s) => state.updates.has(s.id));else
   if (state.cat === "conflict") base = base.filter((s) => s.conflict);else
   if (state.cat === "dup") base = base.filter((s) => s.dup);else
   if (state.cat === "linked") base = base.filter((s) => state.linkedSources.has(s.id));else
   if (state.cat === "unlinked") base = base.filter((s) => !state.linkedSources.has(s.id));else
-  if (state.cat === "claude" || state.cat === "codex") base = base.filter((s) => s.platform === state.cat);else
+  if (state.cat.startsWith("tag:")) {const tg = state.cat.slice(4);base = base.filter((s) => (s.tags || []).includes(tg));}else
+  if (platIds().includes(state.cat)) base = base.filter((s) => s.platform === state.cat);else
   if (state.cat !== "all") base = base.filter((s) => s.source === state.cat);
   if (!q) {state.view = base.slice().sort((a, b) => a.name.localeCompare(b.name));return;}
   const scored = [];
@@ -549,6 +638,9 @@ function favCellHtml(id) {
   const on = isFav(id);
   return `<span class="ti-star${on ? " on" : ""}" data-fav="${id}" title="${on ? t("取消收藏") : t("收藏")}">${STAR_SVG}</span>`;
 }
+function updCell(id) {
+  return state.updates.has(id) ? `<span class="ti-upd" title="${t("有可用更新")}">↑</span>` : "";
+}
 function updateFavBtn() {
   if (!el.favBtn) return;
   const on = state.current && isFav(state.current.id);
@@ -558,16 +650,21 @@ function updateFavBtn() {
 function renderChips() {
   if (!state.scanned) {el.chips.hidden = true;return;}
   el.chips.hidden = false;
-  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, claude: 0, codex: 0, conflict: 0, dup: 0 };
+  const counts = { all: state.all.length, user: 0, project: 0, plugin: 0, conflict: 0, dup: 0 };
   for (const s of state.all) {counts[s.source] = (counts[s.source] || 0) + 1;if (s.platform) counts[s.platform] = (counts[s.platform] || 0) + 1;if (s.conflict) counts.conflict++;if (s.dup) counts.dup++;}
   const linked = state.linkedSources.size;
   counts.fav = state.all.filter((s) => state.favorites.has(s.id)).length;
+  counts.update = state.all.filter((s) => state.updates.has(s.id)).length;
+  // 标签频次（多标签：一个 skill 计入它的每个标签）
+  const tagCount = {};
+  for (const s of state.all) {for (const tg of (s.tags || [])) tagCount[tg] = (tagCount[tg] || 0) + 1;}
+  const topTags = Object.keys(tagCount).sort((a, b) => tagCount[b] - tagCount[a] || a.localeCompare(b)).slice(0, 14);
   const defs = [["all", t("全部")]];
   if (counts.fav) defs.push(["fav", t("收藏")]);
-  if (counts.claude) defs.push(["claude", "Claude"]);
-  if (counts.codex) defs.push(["codex", "Codex"]);
-  defs.push(["user", t("用户级")], ["project", t("项目级")]);
-  if (counts.plugin) defs.push(["plugin", t("插件")]);
+  if (counts.update) defs.push(["update", t("可更新")]);
+  for (const pid of platIds()) {if (counts[pid]) defs.push([pid, platLabel(pid)]);}
+  // 标签 chip（已隐藏用户级/项目级层级，标签为主筛选维度）
+  for (const tg of topTags) {const key = "tag:" + tg;counts[key] = tagCount[tg];defs.push([key, tg]);}
   if (counts.conflict) defs.push(["conflict", t("冲突")]);
   if (counts.dup) defs.push(["dup", t("重复")]);
   if (linked) defs.push(["linked", t("有来源")]);
@@ -591,7 +688,6 @@ function render() {
 }
 
 /* ---------- 左侧平台→层级→skill 可折叠树 ---------- */
-const PLAT_ORDER = ["claude", "codex"];
 const SRC_ORDER = ["user", "project", "plugin"];
 const CHEV = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 
@@ -611,8 +707,11 @@ function renderSidebarTree() {
     byPlat[p] = byPlat[p] || {};
     (byPlat[p][s.source] = byPlat[p][s.source] || []).push(s);
   }
+  // 平台渲染顺序：已发现平台（claude 优先）+ 数据里出现但未列出的兜底。
+  const platOrder = platIds().slice();
+  for (const p in byPlat) {if (!platOrder.includes(p)) platOrder.push(p);}
   let html = "";
-  for (const p of PLAT_ORDER) {
+  for (const p of platOrder) {
     const subs = byPlat[p];if (!subs) continue;
     const total = Object.values(subs).reduce((a, arr) => a + arr.length, 0);
     const pkey = "plat:" + p;
@@ -620,8 +719,8 @@ function renderSidebarTree() {
     html += `<div class="tree-group">
       <button class="tree-head lvl0" data-tk="${pkey}">
         <span class="tw-chev ${pOpen ? "open" : ""}">${CHEV}</span>
-        <span class="plat-dot plat-${p}"></span>
-        <span class="th-name">${t(PLATFORM_LABEL[p] || p)}</span><span class="th-ct">${total}</span></button>`;
+        ${platDot(p)}
+        <span class="th-name">${platLabel(p)}</span><span class="th-ct">${total}</span></button>`;
     if (pOpen) {
       for (const src of SRC_ORDER) {
         const arr = subs[src];if (!arr || !arr.length) continue;
@@ -647,10 +746,10 @@ function treeItem(s, flat) {
   const tm = s.mtime ? `<span class="ti-time" title="${esc(t("更新于 {t}", { t: fmtTime(s.mtime) }))}">${esc(relTime(s.mtime))}</span>` : "";
   if (!flat) {
     return `<button class="tree-item${active}" data-id="${s.id}" title="${esc(s.name)}">
-      <span class="ti-name">${highlight(s.name, q)}</span>${flag}${tm}${favCellHtml(s.id)}</button>`;
+      <span class="ti-name">${highlight(s.name, q)}</span>${updCell(s.id)}${flag}${tm}${favCellHtml(s.id)}</button>`;
   }
   // 扁平搜索项：带平台点 + 层级；名字未命中、仅描述命中时附一行高亮描述片段
-  const dot = `<span class="plat-dot plat-${s.platform || "claude"}" title="${t(PLATFORM_LABEL[s.platform] || "")}"></span>`;
+  const dot = platDot(s.platform || "claude", platLabel(s.platform));
   const lvl = `<span class="ti-lvl">${t(CAT_LABEL[s.source] || s.source)}</span>`;
   const descOnly = q && !s.nameLower.includes(q) && s.descLower.includes(q);
   const sub = descOnly ?
@@ -658,7 +757,7 @@ function treeItem(s, flat) {
   "";
   // 搜索结果不展示时间（更新时间在搜索场景下无意义）
   return `<button class="tree-item flat${active}" data-id="${s.id}" title="${esc(s.name)}">
-    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${flag}${lvl}${favCellHtml(s.id)}</span>${sub}</button>`;
+    <span class="ti-line">${dot}<span class="ti-name">${highlight(s.name, q)}</span>${updCell(s.id)}${flag}${lvl}${favCellHtml(s.id)}</span>${sub}</button>`;
 }
 // 截取描述中命中关键词附近的一小段并高亮。
 function descSnippet(desc, q) {
@@ -1005,7 +1104,8 @@ async function openDetail(id, fromSearch) {
   updateFavBtn();
   el.sheetName.textContent = s.name;
   const flag = flagBadge({ conflict: state.conflicts.has(s.name), dup: state.dups.has(s.name), dupCount: state.dupCounts[s.name] || 0 });
-  el.sheetBadges.innerHTML = `${platformBadge(s)}<span class="badge ${s.source}">${t(CAT_LABEL[s.source] || s.source)}</span>${flag}`;
+  el.sheetBadges.innerHTML = `${platformBadge(s)}${flag}`;
+  renderSheetTags(s.id);
   el.sheetPath.textContent = s.file_path + (s.mtime ? `   ·   ${t("更新于 {t}", { t: fmtTime(s.mtime) })}` : "");
   el.dirty.hidden = true;
   el.detailEmpty.hidden = true;el.sheet.hidden = false;el.sheet.setAttribute("aria-hidden", "false");
@@ -1048,8 +1148,6 @@ async function doDelete() {
 }
 async function doSave() {
   if (!state.current || state.fileBinary || !state.filePath) return;
-  // 保存前记录：当前 skill 此前是否处于“重复组”（同名同内容），用于保存后提示同步。
-  const wasDup = !!(state.current && state.dups.has(state.current.name));
   const curId = state.current && state.current.id,curName = state.current && state.current.name;
   el.save.disabled = true;
   try {
@@ -1059,23 +1157,87 @@ async function doSave() {
       state.baseline = state.editor.getValue();el.dirty.hidden = true;toast(t("已保存"));
       if (d.reindexed) {
         await loadAll();
-        if (wasDup) await maybeSyncDuplicates(curId, curName);
+        await maybeSyncDuplicates(curId, curName);
       }
     } else toast(t("保存失败"), "err");
   } catch {toast(t("保存失败"), "err");} finally
   {el.save.disabled = false;}
 }
-// 编辑了某个重复副本后，提示把改动一键同步到其它同名副本。
+// 编辑后，若其它组件（平台/级别）存在同名且内容已不一致的副本，提示一键同步。
 async function maybeSyncDuplicates(fromId, name) {
+  // 仅当该名字处于“内容有差异的同名组”时提示——全部一致就没必要打扰。
+  if (!state.conflicts.has(name)) return;
   const sibs = state.all.filter((s) => s.name === name && s.id !== fromId);
   if (!sibs.length) return;
-  if (!confirm(t("这个 skill 还有 {n} 个同名副本。是否把它们同步为当前内容？（被覆盖的 SKILL.md 会存 .bak，可恢复）", { n: sibs.length }))) return;
+  const labelOf = (s) => `${platLabel(s.platform) || "?"} · ${t(CAT_LABEL[s.source] || s.source)}`;
+  const list = sibs.map((s) => "• " + labelOf(s)).join("\n");
+  const msg = t("检测到 {n} 个同名 Skill「{name}」，内容与当前不一致：", { n: sibs.length, name }) +
+    "\n" + list + "\n\n" + t("是否把它们同步为当前内容？（被覆盖的 SKILL.md 会存 .bak，可恢复）");
+  if (!confirm(msg)) return;
   try {
     const r = await API.sync(fromId, sibs.map((s) => s.id));
     const d = await r.json().catch(() => ({}));
     if (r.ok) {toast(t("已同步 {n} 个副本", { n: d.synced || 0 }));await loadAll();} else
     toast(d.error || t("同步失败"), "err");
   } catch {toast(t("同步失败"), "err");}
+}
+/* ---------- 标签 ---------- */
+// tagsOf 从列表数据里取某 skill 的标签（详情接口不含 tags）。
+function tagsOf(id) {
+  const item = state.all.find((s) => s.id === id);
+  return (item && item.tags) || [];
+}
+function renderSheetTags(id) {
+  if (!el.sheetTags) return;
+  const tags = tagsOf(id);
+  el.sheetTags.innerHTML = tags.map((tg) => `<span class="tag-pill">${esc(tg)}</span>`).join("");
+}
+async function editTags() {
+  if (!state.current) return;
+  const id = state.current.id;
+  const cur = tagsOf(id).join(", ");
+  const input = prompt(t("编辑标签（用逗号分隔，最多 8 个）："), cur);
+  if (input === null) return; // 取消
+  const tags = input.split(/[,，]/).map((x) => x.trim()).filter(Boolean);
+  try {
+    const r = await API.setTags(id, tags);
+    if (!r.ok) {toast(t("保存失败"), "err");return;}
+    toast(t("标签已更新"));
+    await loadAll();
+    renderSheetTags(id);
+  } catch {toast(t("保存失败"), "err");}
+}
+
+/* ---------- AI 自动分类（打标签）---------- */
+function showClsBar(done, total) {
+  if (!el.clsBar) return;
+  el.clsBar.hidden = false;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  el.clsBarFill.style.width = pct + "%";
+  el.clsBarText.textContent = t("正在自动打标签… {done}/{total}", { done, total });
+}
+function hideClsBar() {if (el.clsBar) el.clsBar.hidden = true;}
+// startClassify 触发分类并轮询进度；silent=true 时 AI 未配置不弹错。
+async function startClassify(force, silent) {
+  try {
+    const r = await API.classify(force);
+    if (r.status === 501) {if (!silent) toast(t("请先在设置里配置 AI（用于自动打标签）"), "err");return;}
+    const d = await r.json().catch(() => ({}));
+    if (!d.running && !d.total) {if (!silent) toast(t("没有需要分类的 skill"));return;}
+    if (d.total) showClsBar(d.done || 0, d.total);
+    pollClassify();
+  } catch {/* ignore */}
+}
+let clsPollTimer = null;
+function pollClassify() {
+  if (clsPollTimer) clearTimeout(clsPollTimer);
+  clsPollTimer = setTimeout(async () => {
+    try {
+      const st = await API.classifyStatus();
+      if (st.running) {showClsBar(st.done || 0, st.total || 0);pollClassify();}
+      else {showClsBar(st.total || 0, st.total || 0);setTimeout(hideClsBar, 1200);await loadAll();}
+    } catch {hideClsBar();}
+  }, 1000);
 }
 async function doReveal() {
   const path = state.filePath || state.current && state.current.file_path;
@@ -1138,17 +1300,28 @@ function openSourceModal() {
   const persisted = s.source_url && !s.inferred;
   const isGithub = s.source_kind === "github_repo";
   const kindOpts = ["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${t(KIND_LABEL[k])}</option>`).join("");
-  const syncOpts = ["none", "check_only", "manual_update"].map((k) => `<option value="${k}" ${(s.sync_policy || "none") === k ? "selected" : ""}>${t(SYNC_LABEL[k])}</option>`).join("");
+  // 更新目标：默认取已存 targets，否则用该 skill 当前所在平台
+  const tset = new Set((s.targets || (state.current && state.current.platform) || "claude").split(",").map((x) => x.trim()).filter(Boolean));
+  // 更新目标多选：按发现的平台动态生成（claude 显示为 Claude Code）。
+  const targetIds = platIds().length ? platIds() : ["claude", "codex"];
+  const targetBoxes = targetIds.map((pid) => {
+    const lbl = pid === "claude" ? "Claude Code" : platLabel(pid);
+    return `<label><input type="checkbox" class="src-target" value="${esc(pid)}" ${tset.has(pid) ? "checked" : ""}/> ${esc(lbl)}</label>`;
+  }).join("");
   el.sourceModalBody.innerHTML = `
     ${s.inferred && s.source_url ? `<div class="modal-note">${t("检测到 Git 来源：{url} —— 确认后点保存即采用。", { url: srcLink(s.source_url) })}</div>` : ""}
+    ${persisted && isGithub && s.has_update ? `<div class="modal-note src-update-note">${t("检测到上游有更新，点「检查更新」查看并应用。")}</div>` : ""}
     <div class="src-form" style="width:100%">
       <label class="field"><span>${t("来源链接")}</span><input class="src-in" id="srcUrl" placeholder="https://github.com/owner/repo" value="${esc(s.source_url || "")}" /></label>
       <div class="src-row">
         <select class="src-in" id="srcKind">${kindOpts}</select>
         <input class="src-in" id="srcRef" placeholder="${t("分支/tag/commit")}" value="${esc(s.source_ref || "")}" />
-        <select class="src-in" id="srcSync">${syncOpts}</select>
       </div>
       <input class="src-in" id="srcNote" placeholder="${t("备注（可选）")}" value="${esc(s.source_note || "")}" />
+      <label class="src-check-line"><input type="checkbox" id="srcAuto" ${s.auto_check ? "checked" : ""}/> <span>${t("自动检测更新")}</span></label>
+      <div class="src-targets"><span class="src-mut">${t("更新目标")}</span>
+        ${targetBoxes}
+      </div>
     </div>
     <div class="src-row" style="margin-top:14px">
       <button class="src-btn primary" data-act="src-save">${t("保存")}</button>
@@ -1158,12 +1331,16 @@ function openSourceModal() {
     </div>`;
   openModal(el.sourceModal);
 }
+// 读取来源弹窗里勾选的更新目标平台（动态多选）
+function readSourceTargets() {
+  return Array.from(document.querySelectorAll(".src-target:checked")).map((c) => c.value);
+}
 async function saveSource(id, payload) {
   try {
     const r = await API.putSource(id, payload);
     if (!r.ok) {toast(t("保存失败"), "err");return;}
     await loadSource(id);
-    try {const sd = await API.sources();state.linkedSources = new Set(sd.linked || []);renderChips();} catch {/* ignore */}
+    try {const sd = await API.sources();state.linkedSources = new Set(sd.linked || []);state.updates = new Set(sd.updates || []);renderChips();} catch {/* ignore */}
     closeModal();
     toast(payload.source_url ? t("已保存来源") : t("已清除来源"));
   } catch {toast(t("保存失败"), "err");}
@@ -1259,6 +1436,19 @@ async function saveOptimizer() {
   try {const r = await API.putOptimizer(optimizerEditor.getValue());if (r.ok) {toast(t("已保存优化规则"));closeModal();} else toast(t("保存失败"), "err");}
   catch {toast(t("保存失败"), "err");}
 }
+let classifierEditor = null;
+async function openClassifier() {
+  let content = "";
+  try {content = (await API.getClassifier()).content || "";} catch {toast(t("载入规则失败"), "err");return;}
+  openModal(el.classifierModal);
+  if (!classifierEditor) classifierEditor = CodeMirror.fromTextArea(el.classifierEd, { mode: "markdown", theme: "material-darker", lineNumbers: true, lineWrapping: true });
+  classifierEditor.setValue(content);
+  setTimeout(() => classifierEditor.refresh(), 50);
+}
+async function saveClassifier() {
+  try {const r = await API.putClassifier(classifierEditor.getValue());if (r.ok) {toast(t("已保存分类规则"));closeModal();} else toast(t("保存失败"), "err");}
+  catch {toast(t("保存失败"), "err");}
+}
 
 /* ---------- GitHub 备份与恢复 ---------- */
 function fmtTime(unix) {
@@ -1304,7 +1494,7 @@ async function doBackupPush() {
   {el.bkPush.classList.remove("loading");el.bkPush.disabled = false;el.bkStatus.textContent = "";}
 }
 async function doBackupRestore() {
-  if (!confirm(t("将用备份仓库的内容覆盖本地 ~/.claude/skills 与 ~/.codex/skills；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？"))) return;
+  if (!confirm(t("将用备份仓库的内容覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？"))) return;
   el.bkRestore.classList.add("loading");el.bkRestore.disabled = true;el.bkStatus.textContent = t("恢复中…");
   try {
     const r = await API.backupRestore();
@@ -1361,8 +1551,9 @@ async function doApplyUpdate() {
   if (!state.pendingUpdate) return;
   const { id, content } = state.pendingUpdate;
   if (!confirm(t("用上游最新内容覆盖本地 SKILL.md？\n（不在 git 仓库时会先备份为 SKILL.md.bak）"))) return;
+  const targets = ((state.source && state.source.targets) || "").split(",").map((x) => x.trim()).filter(Boolean);
   try {
-    const r = await API.applySource(id, content);
+    const r = await API.applySource(id, content, targets);
     if (!r.ok) {toast(t("应用失败"), "err");return;}
     toast(t("已应用上游更新"));state.pendingUpdate = null;closeModal();
     await loadAll();
@@ -1469,12 +1660,19 @@ async function fillSettings() {
     el.keyHint.textContent = c.hasKey ? t("（已配置，可留空）") : t("（未配置）");
     el.cfgStatus.textContent = "";el.cfgStatus.className = "cfg-status";
   } catch {toast(t("读取配置失败"), "err");}
+  if (el.cfgSyncInterval) {try {const sc = await API.getSyncConfig();el.cfgSyncInterval.value = String(sc.interval_min || 0);} catch {/* ignore */}}
+  if (el.cfgSrcToken) {
+    el.cfgSrcToken.value = "";
+    try {const sa = await API.getSourceAuth();el.srcTokenHint.textContent = sa.hasToken ? t("（已配置，可留空）") : t("（未配置）");} catch {el.srcTokenHint.textContent = "";}
+  }
 }
 function readSettingsForm() {
   return { provider: el.cfgProvider.value, baseURL: el.cfgBaseURL.value.trim(), model: el.cfgModel.value.trim(), apiKey: el.cfgKey.value };
 }
 async function saveSettings() {
   el.cfgSave.disabled = true;
+  if (el.cfgSyncInterval) {try {await API.putSyncConfig({ interval_min: parseInt(el.cfgSyncInterval.value, 10) || 0 });} catch {/* ignore */}}
+  if (el.cfgSrcToken && el.cfgSrcToken.value.trim()) {try {await API.putSourceAuth({ token: el.cfgSrcToken.value.trim() });} catch {/* ignore */}}
   try {const r = await API.putConfig(readSettingsForm());if (r.ok) {toast(t("已保存设置"));await probeAI();closeModal();} else toast(t("保存失败"), "err");}
   catch {toast(t("保存失败"), "err");} finally {el.cfgSave.disabled = false;}
 }
@@ -1653,6 +1851,7 @@ document.addEventListener("click", () => {if (!el.fontPop.hidden) el.fontPop.hid
 el.reveal.addEventListener("click", doReveal);
 el.deleteSkill.addEventListener("click", doDelete);
 el.favBtn.addEventListener("click", () => {if (state.current) toggleFavorite(state.current.id);});
+if (el.editTags) el.editTags.addEventListener("click", editTags);
 el.findBtn.addEventListener("click", doFind);
 el.aiOptimize.addEventListener("click", doOptimize);
 el.modeSeg.addEventListener("click", (e) => {const b = e.target.closest(".seg-btn");if (b && !b.disabled) setMode(b.dataset.mode);});
@@ -1662,7 +1861,7 @@ el.sourceModalBody.addEventListener("click", async (e) => {
   const act = b.dataset.act,id = state.current.id;
   if (act === "src-copy") {if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url);toast(t("已复制来源链接"));} else
   if (act === "src-check") {closeModal();doCheckUpdate(id);} else
-  if (act === "src-save") {await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), sync_policy: $("#srcSync").value, source_note: $("#srcNote").value.trim() });} else
+  if (act === "src-save") {await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets() });} else
   if (act === "src-clear") {if (confirm(t("清除该 skill 的来源信息？"))) await saveSource(id, { source_url: "" });}
 });
 el.fileTree.addEventListener("click", (e) => {
@@ -1697,7 +1896,10 @@ el.optAll.addEventListener("click", () => {optSuggestions.forEach((s) => s.accep
 el.optNone.addEventListener("click", () => {optSuggestions.forEach((s) => s.accepted = false);renderSuggestions();});
 el.optApply.addEventListener("click", applyOptimize);
 el.editOptimizer.addEventListener("click", openOptimizer);
+if (el.editClassifier) el.editClassifier.addEventListener("click", openClassifier);
+if (el.reclassify) el.reclassify.addEventListener("click", () => {closeModal();startClassify(true, false);});
 el.optimizerSave.addEventListener("click", saveOptimizer);
+if (el.classifierSave) el.classifierSave.addEventListener("click", saveClassifier);
 el.openBackup.addEventListener("click", openBackup);
 el.bkSave.addEventListener("click", saveBackupConfig);
 el.bkPush.addEventListener("click", doBackupPush);

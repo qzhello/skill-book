@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"skillbook/internal/backup"
 	"skillbook/internal/editor"
@@ -36,6 +37,9 @@ type Server struct {
 	// backupSvc 非 nil 时用于备份/恢复（测试注入假 git Runner）；
 	// nil 时按 HOME 构造默认服务。
 	backupSvc *backup.Service
+	// 标签分类后台任务进度（受 clsMu 保护）。
+	clsMu sync.Mutex
+	cls   classifyProgress
 }
 
 func New(st *store.Store, roots []scanner.Root) *Server {
@@ -45,6 +49,7 @@ func New(st *store.Store, roots []scanner.Root) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/scan", s.handleScan)
+	mux.HandleFunc("GET /api/platforms", s.handleListPlatforms)
 	mux.HandleFunc("GET /api/skills", s.handleList)
 	mux.HandleFunc("GET /api/skills/{id}", s.handleGet)
 	mux.HandleFunc("PUT /api/skills/{id}", s.handleSave)
@@ -74,6 +79,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/skills/{id}/source", s.handleGetSource)
 	mux.HandleFunc("PUT /api/skills/{id}/source", s.handlePutSource)
 	mux.HandleFunc("GET /api/sources", s.handleListSources)
+	// 全局自动检测周期
+	mux.HandleFunc("GET /api/sync-config", s.handleGetSyncConfig)
+	mux.HandleFunc("PUT /api/sync-config", s.handlePutSyncConfig)
+	mux.HandleFunc("GET /api/source-auth", s.handleGetSourceAuth)
+	mux.HandleFunc("PUT /api/source-auth", s.handlePutSourceAuth)
+	mux.HandleFunc("POST /api/tags/classify", s.handleClassifyStart)
+	mux.HandleFunc("GET /api/tags/classify/status", s.handleClassifyStatus)
+	mux.HandleFunc("PUT /api/skills/{id}/tags", s.handleSetTags)
+	mux.HandleFunc("GET /api/classifier", s.handleGetClassifier)
+	mux.HandleFunc("PUT /api/classifier", s.handlePutClassifier)
 	// GitHub 导入 + 更新检查/应用
 	mux.HandleFunc("POST /api/import", s.handleImport)
 	mux.HandleFunc("POST /api/skills/{id}/source/check", s.handleSourceCheck)
@@ -129,18 +144,28 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("handleList: NameGroups failed: %v", err)
 	}
+	tagsByID, err := s.st.TagsByID()
+	if err != nil {
+		log.Printf("handleList: TagsByID failed: %v", err)
+		tagsByID = map[string][]string{}
+	}
 	type item struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Source      string `json:"source"`
-		Platform    string `json:"platform"`
-		Description string `json:"description"`
-		Dir         string `json:"dir"`
-		MTime       int64  `json:"mtime"`
+		ID          string   `json:"id"`
+		Name        string   `json:"name"`
+		Source      string   `json:"source"`
+		Platform    string   `json:"platform"`
+		Description string   `json:"description"`
+		Dir         string   `json:"dir"`
+		MTime       int64    `json:"mtime"`
+		Tags        []string `json:"tags"`
 	}
 	out := make([]item, 0, len(skills))
 	for _, sk := range skills {
-		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), string(sk.Platform), sk.Description, sk.Dir, sk.MTime})
+		tags := tagsByID[sk.ID()]
+		if tags == nil {
+			tags = []string{}
+		}
+		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), string(sk.Platform), sk.Description, sk.Dir, sk.MTime, tags})
 	}
 	writeJSON(w, 200, map[string]any{
 		"conflicts": conflicts, "dups": dups, "dupCounts": dupCounts, "skills": out,

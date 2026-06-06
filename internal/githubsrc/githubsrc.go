@@ -18,6 +18,7 @@ import (
 const (
 	HostGitHub = "github.com"
 	HostRaw    = "raw.githubusercontent.com"
+	HostAPI    = "api.github.com" // 私有仓库经 Contents API + token 读取
 )
 
 // segmentRe 限定 owner/repo/ref 的单段字符集：字母数字、连字符、下划线、点。
@@ -132,6 +133,21 @@ func RawSkillURL(owner, repo, ref, subpath string) string {
 	}
 	parts = append(parts, "SKILL.md")
 	return strings.Join(parts, "/")
+}
+
+// ContentsAPIURL 拼接 GitHub Contents API 上 SKILL.md 的读取地址。
+// 配合 Authorization 头 + Accept: application/vnd.github.raw 可读取私有仓库内容。
+// ref 为空时不带 ?ref=（由 API 用默认分支）；subpath 为空时路径仅 SKILL.md。
+func ContentsAPIURL(owner, repo, ref, subpath string) string {
+	path := "SKILL.md"
+	if subpath != "" {
+		path = subpath + "/SKILL.md"
+	}
+	u := "https://" + HostAPI + "/repos/" + owner + "/" + repo + "/contents/" + path
+	if ref != "" {
+		u += "?ref=" + ref
+	}
+	return u
 }
 
 // CloneURL 返回仓库的 https 克隆地址（只读公共仓库，无需 token）。
