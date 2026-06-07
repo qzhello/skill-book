@@ -34,13 +34,7 @@
 <div id="sky" aria-hidden="true"><div class="sky-stars"></div><div class="sky-stars sky-stars-2"></div><div class="sky-stars sky-stars-3"></div></div>
 <header class="topbar">
   <div class="topbar-left">
-    <button id="sidebarToggle" class="icon-btn" title="收起 / 展开左侧目录" aria-label="收起左侧目录" data-i18n-title="收起 / 展开左侧目录" data-i18n-aria="收起左侧目录">
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
-    </button>
   <div class="brand">
-    <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-    </span>
     <span class="brand-name">Skill<span class="brand-accent">Book</span></span>
   </div>
   </div>
@@ -94,6 +88,9 @@
   </aside>
 
   <section class="detail-pane" id="detailPane">
+    <button id="sidebarHandle" class="sidebar-handle" title="收起 / 展开左侧目录" aria-label="收起 / 展开左侧目录" data-i18n-title="收起 / 展开左侧目录" data-i18n-aria="收起 / 展开左侧目录">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
     <div id="detailEmpty" class="detail-empty">
       <div class="empty-glow"></div>
       <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -196,12 +193,27 @@
       <input id="cfgSrcToken" type="password" placeholder="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" data-i18n-ph="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" /></label>
     <div class="modal-note" data-i18n="key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。">key 与令牌仅保存在本机 <code>~/.skillbook/</code>（0600），不会上传、不回显。</div>
     <div class="cfg-tools-label" data-i18n="管理与工具">管理与工具</div>
-    <div class="cfg-tools">
-      <button id="editScanDirs" class="btn btn-ghost btn-sm" data-i18n="扫描目录">扫描目录</button>
-      <button id="openBackup" class="btn btn-ghost btn-sm" data-i18n="备份与同步">备份与同步</button>
-      <button id="editOptimizer" class="btn btn-ghost btn-sm" data-i18n="编辑优化规则">编辑优化规则</button>
-      <button id="editClassifier" class="btn btn-ghost btn-sm" data-i18n="编辑分类规则">编辑分类规则</button>
-      <button id="reclassify" class="btn btn-ghost btn-sm" data-i18n="全部重新分类">全部重新分类</button>
+    <div class="cfg-menu">
+      <button id="editScanDirs" class="cfg-menu-item">
+        <span class="cmi-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></span>
+        <span class="cmi-txt"><span class="cmi-title" data-i18n="扫描目录">扫描目录</span><span class="cmi-desc" data-i18n="配置要扫描的目录与项目">配置要扫描的目录与项目</span></span>
+        <span class="cmi-chev">›</span>
+      </button>
+      <button id="editClassifier" class="cfg-menu-item">
+        <span class="cmi-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
+        <span class="cmi-txt"><span class="cmi-title" data-i18n="分类规则">分类规则</span><span class="cmi-desc" data-i18n="AI 自动打标签的规则">AI 自动打标签的规则</span></span>
+        <span class="cmi-chev">›</span>
+      </button>
+      <button id="editOptimizer" class="cfg-menu-item">
+        <span class="cmi-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></span>
+        <span class="cmi-txt"><span class="cmi-title" data-i18n="优化规则">优化规则</span><span class="cmi-desc" data-i18n="AI 优化 skill 的评审依据">AI 优化 skill 的评审依据</span></span>
+        <span class="cmi-chev">›</span>
+      </button>
+      <button id="openBackup" class="cfg-menu-item">
+        <span class="cmi-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+        <span class="cmi-txt"><span class="cmi-title" data-i18n="备份与同步">备份与同步</span><span class="cmi-desc" data-i18n="备份到 GitHub 仓库">备份到 GitHub 仓库</span></span>
+        <span class="cmi-chev">›</span>
+      </button>
     </div>
   </div>
   <div class="modal-foot">
@@ -306,26 +318,34 @@
   </div>
 </div>
 
-<div id="scanDirsModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="扫描目录">
+<div id="scanDirsModal" class="modal scan-dirs-modal" hidden role="dialog" aria-modal="true" aria-label="扫描目录">
   <div class="modal-head"><h3 data-i18n="扫描目录">扫描目录</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
-  <div class="modal-note" data-i18n="勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。">勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。</div>
-  <div id="scanDirsBody"></div>
-  <div class="src-row" style="margin-top:10px">
-    <input class="src-in" id="newDirPath" placeholder="/绝对路径/到/项目" style="flex:2" />
-    <input class="src-in" id="newDirName" placeholder="项目名（可选）" data-i18n-ph="项目名（可选）" style="flex:1" />
-    <button class="src-btn" data-act="add-dir" data-i18n="添加">添加</button>
-    <button class="src-btn" data-act="toggle-browser" data-i18n="浏览…">浏览…</button>
-  </div>
-  <div id="dirBrowser" class="dir-browser" hidden>
-    <div class="db-bar">
-      <button class="src-btn" data-act="db-up" title="上级目录" data-i18n-title="上级目录">↑</button>
-      <span id="dbPath" class="db-path"></span>
+  <div class="modal-body sd-split">
+    <div class="sd-col sd-col-left">
+      <div class="sd-col-title" data-i18n="浏览选择">浏览选择</div>
+      <div class="db-bar">
+        <button class="src-btn" data-act="db-up" title="上级目录" data-i18n-title="上级目录">↑</button>
+        <input id="dbPathInput" class="src-in db-path-input" placeholder="输入路径，回车跳转" data-i18n-ph="输入路径，回车跳转" spellcheck="false" autocomplete="off" list="dbPathOptions" />
+        <datalist id="dbPathOptions"></datalist>
+        <button class="src-btn" data-act="db-go" data-i18n="跳转">跳转</button>
+      </div>
+      <div id="dbList" class="db-list"></div>
+      <div class="db-foot">
+        <span id="dbSel" class="src-mut"></span>
+        <div class="toolbar-spacer"></div>
+        <button class="src-btn primary" data-act="db-add-selected" data-i18n="添加所选">添加所选</button>
+      </div>
+      <div class="sd-manual-label" data-i18n="或手动输入路径">或手动输入路径</div>
+      <div class="src-row">
+        <input class="src-in" id="newDirPath" placeholder="/绝对路径/到/项目" style="flex:1;min-width:120px" />
+        <input class="src-in" id="newDirName" placeholder="项目名（可选）" data-i18n-ph="项目名（可选）" style="flex:0 0 96px;min-width:80px" />
+        <button class="src-btn" data-act="add-dir" data-i18n="添加">添加</button>
+      </div>
     </div>
-    <div id="dbList" class="db-list"></div>
-    <div class="db-foot">
-      <span id="dbSel" class="src-mut"></span>
-      <div class="toolbar-spacer"></div>
-      <button class="src-btn primary" data-act="db-add-selected" data-i18n="添加所选">添加所选</button>
+    <div class="sd-col sd-col-right">
+      <div class="sd-col-title" data-i18n="将扫描的目录">将扫描的目录</div>
+      <div class="modal-note" data-i18n="勾选要扫描的目录；额外目录视为项目，递归扫描其下 SKILL.md。">勾选要扫描的目录；额外目录视为项目，递归扫描其下 SKILL.md。</div>
+      <div id="scanDirsBody"></div>
     </div>
   </div>
   <div class="modal-foot">
@@ -341,6 +361,7 @@
   <div class="modal-foot">
     <span class="src-mut" data-i18n="保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。">保存在本机 <code>~/.skillbook/classifier.md</code>；留空恢复默认。<code>{vocab}</code> 会替换为已有标签。</span>
     <div class="toolbar-spacer"></div>
+    <button id="reclassify" class="btn btn-ghost" data-i18n="全部重新分类">全部重新分类</button>
     <button id="classifierSave" class="btn btn-primary" data-i18n="保存规则">保存规则</button>
   </div>
 </div>

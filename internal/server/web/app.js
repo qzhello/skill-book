@@ -96,6 +96,12 @@ const I18N = {
     "测试连接": "Test connection",
     "编辑优化规则": "Edit optimize rules",
     "编辑分类规则": "Edit tagging rules",
+    "分类规则": "Tagging rules",
+    "优化规则": "Optimize rules",
+    "配置要扫描的目录与项目": "Configure scan directories & projects",
+    "AI 自动打标签的规则": "Rules for AI auto-tagging",
+    "AI 优化 skill 的评审依据": "Criteria for AI skill optimization",
+    "备份到 GitHub 仓库": "Back up to a GitHub repo",
     "扫描目录": "Scan directories",
     "勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。": "Check directories to scan. Each extra directory is a project — its SKILL.md files are scanned recursively, project name defaults to the folder name.",
     "项目名（可选）": "Project name (optional)",
@@ -111,6 +117,13 @@ const I18N = {
     "已保存，点「扫描」生效": "Saved — click Scan to apply",
     "管理与工具": "Management & tools",
     "浏览…": "Browse…",
+    "浏览文件夹…": "Browse folders…",
+    "浏览选择": "Browse & pick",
+    "将扫描的目录": "Directories to scan",
+    "勾选要扫描的目录；额外目录视为项目，递归扫描其下 SKILL.md。": "Check directories to scan; extra ones are projects, scanned recursively for SKILL.md.",
+    "或手动输入路径": "Or enter a path manually",
+    "输入路径，回车跳转": "Enter a path, press Enter to jump",
+    "跳转": "Go",
     "上级目录": "Parent directory",
     "添加所选": "Add selected",
     "进入": "Open",
@@ -280,7 +293,7 @@ const I18N = {
     "载入规则失败": "Failed to load rules",
     "已保存优化规则": "Optimize rules saved",
     "上次备份：{t} · 仓库 {repo}": "Last backup: {t} · repo {repo}",
-    "未配置——填好仓库与 token 后即可一键备份": "Not configured — fill in repo and token to back up in one click",
+    "尚未配置备份（在下方填写仓库与 Token）": "Backup not configured (fill in repo & token below)",
     "载入备份配置失败": "Failed to load backup config",
     "已保存（留空不改）": "saved (leave empty to keep)",
     "必填": "required",
@@ -393,7 +406,7 @@ function refreshOpenDetailI18n() {
 
 const $ = (s) => document.querySelector(s);
 const el = {
-  scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"), sidebarToggle: $("#sidebarToggle"),
+  scan: $("#scan"), newSkill: $("#newSkill"), settings: $("#settings"), sidebarHandle: $("#sidebarHandle"),
   q: $("#q"), clear: $("#clear"), searchWrap: $("#searchWrap"),
   chips: $("#chips"), tagSection: $("#tagSection"),
   workbench: $("#workbench"), sidebar: $("#sidebar"), tree: $("#tree"), emptyHero: $("#emptyHero"),
@@ -1525,6 +1538,7 @@ async function openScanDirs() {
   catch {toast(t("读取失败"), "err");return;}
   renderScanDirs();
   openModal(el.scanDirsModal);
+  dbLoad(dbState.path || ""); // 左栏浏览器常驻，打开即加载
 }
 function renderScanDirs() {
   const row = (d, isExtra, idx) => {
@@ -1563,8 +1577,8 @@ async function dbLoad(path) {
   } catch {toast(t("无法读取目录"), "err");}
 }
 function renderDirBrowser() {
-  const $db = document.getElementById("dirBrowser");if (!$db) return;
-  document.getElementById("dbPath").textContent = dbState.path;
+  if (!document.getElementById("dbList")) return;
+  const pin = document.getElementById("dbPathInput");if (pin) pin.value = dbState.path;
   document.getElementById("dbList").innerHTML = dbState.dirs.map((d) =>
     `<div class="db-item">
        <input type="checkbox" class="db-chk" data-path="${esc(d.path)}" ${dbState.selected.has(d.path) ? "checked" : ""}/>
@@ -1572,13 +1586,43 @@ function renderDirBrowser() {
      </div>`).join("") || `<div class="src-mut" style="padding:8px">${t("（无子目录）")}</div>`;
   document.getElementById("dbSel").textContent = t("已选 {n}", { n: dbState.selected.size });
 }
+// baseName 取路径的文件夹名（去尾部斜杠）。
+const baseName = (p) => (p || "").replace(/\/+$/, "").split("/").pop() || p;
 function dbAddSelected() {
   if (!dbState.selected.size) {toast(t("未选择目录"), "err");return;}
   const existing = new Set(scanDirsState.extra.map((e) => e.path));
-  dbState.selected.forEach((p) => {if (!existing.has(p)) scanDirsState.extra.push({ path: p, name: "", enabled: true, short: p });});
+  dbState.selected.forEach((p) => {if (!existing.has(p)) scanDirsState.extra.push({ path: p, name: baseName(p), enabled: true, short: p });});
   dbState.selected.clear();
   toast(t("已添加，记得保存"));
   renderScanDirs();renderDirBrowser();
+}
+
+// setupDirAutocomplete 给路径输入框接上"子目录前缀联想"（原生 datalist）+ 回车/选中跳转。
+function setupDirAutocomplete() {
+  const pin = document.getElementById("dbPathInput");
+  const dl = document.getElementById("dbPathOptions");
+  if (!pin || !dl) return;
+  let acParent = null,acDirs = new Set(),timer = null;
+  async function refresh(v) {
+    // 取最后一个 / 之前作为父目录，列出其子目录作为候选
+    const slash = v.lastIndexOf("/");
+    if (slash < 0) return;
+    const parent = v.slice(0, slash + 1);
+    if (parent === acParent) return; // 父目录没变，沿用候选
+    acParent = parent;
+    try {
+      const d = await API.browse(parent);
+      acDirs = new Set((d.dirs || []).map((x) => x.path));
+      dl.innerHTML = (d.dirs || []).map((x) => `<option value="${esc(x.path)}"></option>`).join("");
+    } catch {acDirs = new Set();dl.innerHTML = "";}
+  }
+  pin.addEventListener("input", () => {
+    const v = pin.value.trim();
+    // 选中候选项（值正好是某个已知目录）→ 直接跳转
+    if (acDirs.has(v)) {dbLoad(v);return;}
+    clearTimeout(timer);timer = setTimeout(() => refresh(v), 150);
+  });
+  pin.addEventListener("keydown", (e) => {if (e.key === "Enter") {e.preventDefault();const v = pin.value.trim();if (v) dbLoad(v);}});
 }
 
 async function saveScanDirs() {
@@ -1627,7 +1671,7 @@ async function openBackup() {
     el.bkBranch.value = cfg.branch || "main";
     el.bkTokenHint.textContent = cfg.hasToken ? t("已保存（留空不改）") : t("必填");
     el.backupStatus.textContent = st.configured ?
-    t("上次备份：{t} · 仓库 {repo}", { t: fmtTime(st.lastBackup), repo: cfg.repoURL || "—" }) : t("未配置——填好仓库与 token 后即可一键备份");
+    t("上次备份：{t} · 仓库 {repo}", { t: fmtTime(st.lastBackup), repo: cfg.repoURL || "—" }) : t("尚未配置备份（在下方填写仓库与 Token）");
 
   } catch {el.backupStatus.textContent = t("载入备份配置失败");}
 }
@@ -1921,18 +1965,41 @@ async function doImport() {
 }
 
 /* ---------- modal helpers ---------- */
+// 弹窗栈：从某弹窗（如设置）里打开子弹窗会入栈，关闭只关最上层并返回上一层，
+// 避免一按 ESC 把整条链全部关掉。
 let openModalEl = null;
+const modalStack = [];
 function openModal(m) {
-  if (openModalEl) openModalEl.hidden = true;
+  if (openModalEl && openModalEl !== m) {
+    modalStack.push(openModalEl);
+    openModalEl.classList.remove("show");
+    openModalEl.hidden = true;
+  }
   openModalEl = m;
   el.modalScrim.hidden = false;m.hidden = false;
   requestAnimationFrame(() => {el.modalScrim.classList.add("show");m.classList.add("show");});
 }
 function closeModal() {
   if (!openModalEl) return;
-  const m = openModalEl;openModalEl = null;
-  el.modalScrim.classList.remove("show");m.classList.remove("show");
+  const m = openModalEl;
+  m.classList.remove("show");
+  const prev = modalStack.pop();
+  if (prev) {
+    // 返回上一层：立即换回，不整链关闭
+    m.hidden = true;
+    openModalEl = prev;
+    prev.hidden = false;
+    requestAnimationFrame(() => prev.classList.add("show"));
+    return;
+  }
+  openModalEl = null;
+  el.modalScrim.classList.remove("show");
   setTimeout(() => {el.modalScrim.hidden = true;m.hidden = true;}, 220);
+}
+// closeAllModals 彻底关闭整条弹窗链（清空栈）。
+function closeAllModals() {
+  modalStack.length = 0;
+  closeModal();
 }
 
 /* ---------- history ---------- */
@@ -2002,7 +2069,7 @@ function setTheme(dark) {
 }
 el.themeToggle.addEventListener("click", () => setTheme(document.documentElement.getAttribute("data-theme") !== "dark"));
 el.langToggle.addEventListener("click", toggleLang);
-el.sidebarToggle.addEventListener("click", toggleFull);
+el.sidebarHandle.addEventListener("click", toggleFull);
 el.save.addEventListener("click", doSave);
 // 阅读字体/字号面板
 el.fontBtn.addEventListener("click", (e) => {e.stopPropagation();el.fontPop.hidden = !el.fontPop.hidden;});
@@ -2074,25 +2141,20 @@ if (el.reclassify) el.reclassify.addEventListener("click", () => {closeModal();s
 el.optimizerSave.addEventListener("click", saveOptimizer);
 if (el.classifierSave) el.classifierSave.addEventListener("click", saveClassifier);
 if (el.editScanDirs) el.editScanDirs.addEventListener("click", openScanDirs);
+setupDirAutocomplete();
 if (el.scanDirsSave) el.scanDirsSave.addEventListener("click", saveScanDirs);
 if (el.scanDirsModal) el.scanDirsModal.addEventListener("click", (e) => {
   const add = e.target.closest('[data-act="add-dir"]');
   if (add) {
     syncScanDirsFromDom();
     const p = el.newDirPath.value.trim();if (!p) {toast(t("请输入目录路径"), "err");return;}
-    scanDirsState.extra.push({ path: p, name: el.newDirName.value.trim(), enabled: true, short: p });
+    scanDirsState.extra.push({ path: p, name: el.newDirName.value.trim() || baseName(p), enabled: true, short: p });
     el.newDirPath.value = "";el.newDirName.value = "";renderScanDirs();return;
   }
   const rm = e.target.closest(".sd-rm");
   if (rm) {syncScanDirsFromDom();scanDirsState.extra.splice(+rm.dataset.idx, 1);renderScanDirs();return;}
-  const tg = e.target.closest('[data-act="toggle-browser"]');
-  if (tg) {
-    const db = document.getElementById("dirBrowser");
-    db.hidden = !db.hidden;
-    if (!db.hidden && !dbState.path) dbLoad("");
-    return;
-  }
   if (e.target.closest('[data-act="db-up"]')) {if (dbState.parent) dbLoad(dbState.parent);return;}
+  if (e.target.closest('[data-act="db-go"]')) {const v = document.getElementById("dbPathInput").value.trim();if (v) dbLoad(v);return;}
   if (e.target.closest('[data-act="db-add-selected"]')) {dbAddSelected();return;}
   const enter = e.target.closest(".db-enter");
   if (enter) {dbLoad(enter.dataset.path);return;}
