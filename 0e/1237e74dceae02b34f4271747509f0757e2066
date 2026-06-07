@@ -1,0 +1,21 @@
+internal/scanner/scanner.go
+  ai_agent 13-18,38-45,62-66,69,87-96
+internal/server/platforms.go
+  ai_agent 18
+internal/server/scandirs.go
+  ai_agent 1-225
+internal/server/server.go
+  ai_agent 87-89,118,160,172
+internal/server/web/index.html
+  ai_agent 144-145,147-148,198-205,309-334
+internal/server/web/app.js
+  ai_agent 99-123,413-414,420,444-453,485,489,491,515,581-583,648,709-714,852,1148,1162,1175,1222,1353-1358,1364-1367,1370,1503,1520-1597,1695,2076-2101
+internal/server/web/style.css
+  ai_agent 105-112,283-286,312,314,321-322,324-325,329-347,526-527
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "0e1237e74dceae02b34f4271747509f0757e2066",
+  "prompts": {}
+}
