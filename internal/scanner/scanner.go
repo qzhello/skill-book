@@ -10,6 +10,12 @@ import (
 	"skillbook/internal/model"
 )
 
+// skipDirs 是递归扫描项目目录时跳过的重目录/缓存目录，避免扫到 vendored SKILL.md。
+var skipDirs = map[string]bool{
+	"node_modules": true, ".git": true, "vendor": true, "dist": true,
+	"build": true, ".venv": true, "venv": true, "__pycache__": true, "target": true,
+}
+
 // Root 是一个扫描根目录及其来源/平台标签。
 type Root struct {
 	Path     string
@@ -29,7 +35,14 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 			if err != nil {
 				return nil // 单条错误不致命
 			}
-			if d.IsDir() || d.Name() != "SKILL.md" {
+			if d.IsDir() {
+				// 跳过常见重目录，避免在项目目录里扫到 vendored / 缓存的 SKILL.md。
+				if skipDirs[d.Name()] && p != root.Path {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if d.Name() != "SKILL.md" {
 				return nil
 			}
 			content, rerr := os.ReadFile(p)
@@ -46,9 +59,14 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 			if info != nil {
 				mtime = info.ModTime().Unix()
 			}
+			// 自定义扫描目录的 root.Platform 为空，按 SKILL.md 路径里的 .<工具> 段推断。
+			platform := root.Platform
+			if platform == "" {
+				platform = model.Platform(inferPlatformFromPath(dir))
+			}
 			out = append(out, model.Skill{
 				Source:      root.Source,
-				Platform:    root.Platform,
+				Platform:    platform,
 				Dir:         dir,
 				FilePath:    p,
 				Name:        name,
@@ -64,6 +82,18 @@ func ScanRoots(roots []Root) ([]model.Skill, error) {
 		}
 	}
 	return out, nil
+}
+
+// inferPlatformFromPath 从 skill 目录路径推断平台：取 "skills" 目录的上一级若是
+// 点目录（如 .../.claude/skills/foo → claude）；推断不出回退 "claude"。
+func inferPlatformFromPath(dir string) string {
+	segs := strings.Split(dir, string(filepath.Separator))
+	for i := 1; i < len(segs); i++ {
+		if segs[i] == "skills" && strings.HasPrefix(segs[i-1], ".") && len(segs[i-1]) > 1 {
+			return strings.TrimPrefix(segs[i-1], ".")
+		}
+	}
+	return "claude"
 }
 
 // DiscoverPlatformIDs 在 base 下查找形如 .<工具>/skills 的目录，返回去掉前导点的

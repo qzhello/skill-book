@@ -96,6 +96,31 @@ const I18N = {
     "测试连接": "Test connection",
     "编辑优化规则": "Edit optimize rules",
     "编辑分类规则": "Edit tagging rules",
+    "扫描目录": "Scan directories",
+    "勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。": "Check directories to scan. Each extra directory is a project — its SKILL.md files are scanned recursively, project name defaults to the folder name.",
+    "项目名（可选）": "Project name (optional)",
+    "添加": "Add",
+    "保存后点「扫描」生效": "Click Scan after saving to apply",
+    "默认目录": "Default directories",
+    "项目目录": "Project directories",
+    "（无）": "(none)",
+    "（暂无，下方添加）": "(none yet — add below)",
+    "项目名": "Project name",
+    "移除": "Remove",
+    "请输入目录路径": "Enter a directory path",
+    "已保存，点「扫描」生效": "Saved — click Scan to apply",
+    "管理与工具": "Management & tools",
+    "浏览…": "Browse…",
+    "上级目录": "Parent directory",
+    "添加所选": "Add selected",
+    "进入": "Open",
+    "（无子目录）": "(no subdirectories)",
+    "（暂无子目录）": "(no subdirectories)",
+    "已选 {n}": "{n} selected",
+    "无法读取目录": "Cannot read directory",
+    "未选择目录": "No directory selected",
+    "已添加，记得保存": "Added — remember to save",
+    "读取失败": "Failed to load",
     "全部重新分类": "Re-tag all",
     "分类规则（AI 打标签依据）": "Tagging rules (AI labeling basis)",
     "保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。": "Stored locally in ~/.skillbook/classifier.md; empty restores default. {vocab} is replaced with existing tags.",
@@ -385,12 +410,14 @@ const el = {
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
   editClassifier: $("#editClassifier"), reclassify: $("#reclassify"),
+  editScanDirs: $("#editScanDirs"), scanDirsModal: $("#scanDirsModal"), scanDirsBody: $("#scanDirsBody"),
+  newDirPath: $("#newDirPath"), newDirName: $("#newDirName"), scanDirsSave: $("#scanDirsSave"),
   classifierModal: $("#classifierModal"), classifierEd: $("#classifierEd"), classifierSave: $("#classifierSave"),
   modeSeg: $("#modeSeg"), preview: $("#preview"), editorWrap: $("#editorWrap"), ed: $("#ed"), sheetMain: $("#sheetMain"), splitGutter: $("#splitGutter"),
   binaryNote: $("#binaryNote"), fileTree: $("#fileTree"), sheetBody: $("#sheetBody"),
   aiOptimize: $("#aiOptimize"), findBtn: $("#findBtn"), reveal: $("#reveal"), favBtn: $("#favBtn"),
   fontBtn: $("#fontBtn"), fontPop: $("#fontPop"), fsVal: $("#fsVal"),
-  save: $("#save"), dirty: $("#dirty"), deleteSkill: $("#deleteSkill"), themeToggle: $("#themeToggle"), langToggle: $("#langToggle"),
+  save: $("#save"), deleteSkill: $("#deleteSkill"), themeToggle: $("#themeToggle"), langToggle: $("#langToggle"),
   groupsModal: $("#groupsModal"), groupsTitle: $("#groupsTitle"), groupsSub: $("#groupsSub"),
   groupsBody: $("#groupsBody"), groupsSel: $("#groupsSel"),
   grpCompare: $("#grpCompare"), grpLocate: $("#grpLocate"), grpTrash: $("#grpTrash"),
@@ -414,6 +441,16 @@ const CAT_LABEL = { user: "用户级", project: "项目级", plugin: "插件" };
 // claude/codex 保留 CSS 专属配色，其余平台用 platColor 派生稳定色。
 const PLAT_FIXED_COLOR = { claude: "#e09a6a", codex: "#7aa8ff" };
 const PLAT_PALETTE = ["#8b7ff0", "#5bbf9a", "#e0707a", "#d9a441", "#5bb6c9", "#c97ad9", "#6f9bd8", "#cf8a5b"];
+// 品牌图标（fill:currentColor，跟随文字色）
+const GITHUB_SVG = '<svg class="brand-ico" viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+const OPENAI_SVG = '<svg class="brand-ico" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zM13.2599 22.43a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.1419.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z"/></svg>';
+const CLAUDE_SVG = '<svg class="brand-ico" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14.5 12 22 12M14.17 13.25 20.66 17M13.25 14.17 17 20.66M12 14.5 12 22M10.75 14.17 7 20.66M9.83 13.25 3.34 17M9.5 12 2 12M9.83 10.75 3.34 7M10.75 9.83 7 3.34M12 9.5 12 2M13.25 9.83 17 3.34M14.17 10.75 20.66 7"/></svg>';
+// platIcon 返回平台品牌图标：Claude→Claude 标，Codex→OpenAI 标；其余无。
+function platIcon(id) {
+  if (id === "claude") return CLAUDE_SVG;
+  if (id === "codex") return OPENAI_SVG;
+  return "";
+}
 // platLabel 返回平台展示名：优先后端给的 label，回退已知名，再回退首字母大写。
 function platLabel(id) {
   if (!id) return "";
@@ -445,13 +482,13 @@ function platformBadge(s) {
   if (!p) return "";
   const label = platLabel(p);
   const title = t("平台：{p}", { p: label });
-  if (isKnownPlat(p)) return `<span class="badge plat-${p}" title="${title}">${label}</span>`;
+  if (isKnownPlat(p)) return `<span class="badge plat-${p}" title="${title}">${platIcon(p)}${label}</span>`;
   const c = platColor(p);
   return `<span class="badge" style="color:${c};border-color:${c}66;background:${c}1f;text-transform:none" title="${title}">${label}</span>`;
 }
-// platDot 渲染左侧树/行内的平台小圆点（已知平台走 CSS，其余内联色）。
+// platDot 渲染左侧树/行内的平台标识：已知平台用品牌图标，其余用内联色圆点。
 function platDot(p, title) {
-  if (isKnownPlat(p)) return `<span class="plat-dot plat-${p}" title="${title || ""}"></span>`;
+  if (isKnownPlat(p)) return `<span class="plat-ico-wrap" style="color:${platColor(p)}" title="${title || ""}">${platIcon(p)}</span>`;
   return `<span class="plat-dot" style="background:${platColor(p)}" title="${title || ""}"></span>`;
 }
 function relTime(unix) {
@@ -475,7 +512,7 @@ const state = {
   current: null, editor: null, baseline: "", mode: "view", aiResult: "",
   files: [], filePath: "", fileBinary: false, full: false, aiConfigured: false,
   collapsed: new Set(), linkedSources: new Set(), updates: new Set(), source: null, sourceEditing: false,
-  favorites: new Set(), fileTreeCollapsed: false, tagsCollapsed: false, tagsShowAll: false,
+  favorites: new Set(), fileTreeCollapsed: false, tagsCollapsed: false, tagsShowAll: false, dirty: false,
   diffMode: "ai", pendingUpdate: null,
   groupKind: "dup", groupSel: new Set(),
   readerSize: 15, readerFont: "sans"
@@ -541,6 +578,9 @@ const API = {
   checkSource: (id) => fetch("/api/skills/" + id + "/source/check", { method: "POST" }),
   applySource: (id, content, targets) => fetch("/api/skills/" + id + "/source/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content, targets }) }),
   getSyncConfig: () => fetch("/api/sync-config").then(J),
+  browse: (path) => fetch("/api/browse" + (path ? "?path=" + encodeURIComponent(path) : "")).then(J),
+  getScanDirs: () => fetch("/api/scan-dirs").then(J),
+  putScanDirs: (body) => fetch("/api/scan-dirs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   getSourceAuth: () => fetch("/api/source-auth").then(J),
   putSourceAuth: (body) => fetch("/api/source-auth", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   classify: (force) => fetch("/api/tags/classify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) }),
@@ -605,6 +645,7 @@ function compute() {
   if (state.cat === "linked") base = base.filter((s) => state.linkedSources.has(s.id));else
   if (state.cat === "unlinked") base = base.filter((s) => !state.linkedSources.has(s.id));else
   if (state.cat.startsWith("tag:")) {const tg = state.cat.slice(4);base = base.filter((s) => (s.tags || []).includes(tg));}else
+  if (state.cat.startsWith("proj:")) {const pj = state.cat.slice(5);base = base.filter((s) => s.project === pj);}else
   if (platIds().includes(state.cat)) base = base.filter((s) => s.platform === state.cat);else
   if (state.cat !== "all") base = base.filter((s) => s.source === state.cat);
   if (!q) {state.view = base.slice().sort((a, b) => a.name.localeCompare(b.name));return;}
@@ -665,6 +706,12 @@ function renderChips() {
   if (counts.fav) defs.push(["fav", t("收藏")]);
   if (counts.update) defs.push(["update", t("可更新")]);
   for (const pid of platIds()) {if (counts[pid]) defs.push([pid, platLabel(pid)]);}
+  // 项目筛选 chip（来自配置的扫描项目目录；全局/用户级 skill 无项目）
+  const projCount = {};
+  for (const s of state.all) {if (s.project) projCount[s.project] = (projCount[s.project] || 0) + 1;}
+  for (const pj of Object.keys(projCount).sort((a, b) => a.localeCompare(b))) {
+    const key = "proj:" + pj;counts[key] = projCount[pj];defs.push([key, pj]);
+  }
   if (counts.conflict) defs.push(["conflict", t("冲突")]);
   if (counts.dup) defs.push(["dup", t("重复")]);
   if (linked) defs.push(["linked", t("有来源")]);
@@ -802,7 +849,7 @@ function ensureEditor() {
     highlightSelectionMatches: { minChars: 2, showToken: false, delay: 80 }
   });
   state.editor.on("change", () => {
-    el.dirty.hidden = state.editor.getValue() === state.baseline;
+    setDirty(state.editor.getValue() !== state.baseline);
     if (state.mode === "split") {clearTimeout(splitPreviewTimer);splitPreviewTimer = setTimeout(() => {renderPreview();markPreview(currentFindQuery());syncFromEditor();}, 140);}
   });
   // 用 scroller 的 DOM scroll 事件（比 CM 的 "scroll" 事件更可靠，任何滚动都触发）；
@@ -1098,7 +1145,7 @@ function renderTree() {
   el.fileTree.innerHTML = fileTreeHeadHtml() + (renderNode(buildTree(), 0) || `<div class="ft-row dir" style="padding-left:8px">${t("（空目录）")}</div>`);
 }
 async function openFile(abs, mode) {
-  if (!el.dirty.hidden && state.filePath && state.filePath !== abs &&
+  if (state.dirty && state.filePath && state.filePath !== abs &&
   !confirm(t("当前文件有未保存修改，切换将丢失。确定切换？"))) return;
   let f;
   try {f = await API.readFile(abs);} catch {toast(t("读取文件失败"), "err");return;}
@@ -1112,7 +1159,7 @@ async function openFile(abs, mode) {
   state.baseline = f.content || "";
   state.editor.setValue(f.content || "");
   applyMode(state.editor, abs);
-  el.dirty.hidden = true;
+  setDirty(false);
   setMode(mode || state.mode || "view");
 }
 async function openDetail(id, fromSearch) {
@@ -1125,7 +1172,7 @@ async function openDetail(id, fromSearch) {
   el.sheetBadges.innerHTML = `${platformBadge(s)}${flag}`;
   renderSheetTags(s.id);
   el.sheetPath.textContent = s.file_path + (s.mtime ? `   ·   ${t("更新于 {t}", { t: fmtTime(s.mtime) })}` : "");
-  el.dirty.hidden = true;
+  setDirty(false);
   el.detailEmpty.hidden = true;el.sheet.hidden = false;el.sheet.setAttribute("aria-hidden", "false");
   markActiveTreeItem(id);
   ensureEditor();
@@ -1172,7 +1219,7 @@ async function doSave() {
     const res = await API.putFile(state.filePath, state.editor.getValue());
     if (res.ok) {
       const d = await res.json().catch(() => ({}));
-      state.baseline = state.editor.getValue();el.dirty.hidden = true;toast(t("已保存"));
+      state.baseline = state.editor.getValue();setDirty(false);toast(t("已保存"));
       if (d.reindexed) {
         await loadAll();
         await maybeSyncDuplicates(curId, curName);
@@ -1303,15 +1350,24 @@ async function loadSource(id) {
   try {state.source = await API.getSource(id);} catch {state.source = null;}
   renderSourceChip();
 }
+// setDirty 统一控制"有改动"状态：仅用「保存」按钮的显隐表达，
+// 未改动时隐藏保存按钮（有变动才显示），不再额外显示脏标记圆点。
+function setDirty(dirty) {
+  state.dirty = !!dirty;
+  el.save.hidden = !dirty;
+}
 function renderSourceChip() {
   const s = state.source;
   const unset = !s || !s.source_url && !s.inferred;
   el.sourceChip.classList.toggle("unset", unset);
   if (unset) {el.sourceChip.innerHTML = `<span class="src-mut">${t("未设置来源")}</span>`;return;}
-  if (s.inferred && s.source_url) {el.sourceChip.innerHTML = `${LINK_SVG}<span>${t("检测到来源")}</span>`;return;}
+  // github 来源用 GitHub 图标，更直观；其余用通用链接图标。
+  const isGh = (s.source_kind || "").startsWith("github") || /(^|\/\/)github\.com\//.test(s.source_url || "");
+  const ico = isGh ? GITHUB_SVG : LINK_SVG;
+  if (s.inferred && s.source_url) {el.sourceChip.innerHTML = `${ico}<span>${t("检测到来源")}</span>`;return;}
   let label = (s.source_url || "").replace(/^https?:\/\//, "").replace(/^github\.com\//, "");
   if (label.length > 30) label = label.slice(0, 30) + "…";
-  el.sourceChip.innerHTML = `${LINK_SVG}<span>${esc(label)}</span>`;
+  el.sourceChip.innerHTML = `${ico}<span>${esc(label)}</span>`;
 }
 async function openSourceModal() {
   const s = state.source || {};
@@ -1444,7 +1500,7 @@ function applyOptimize() {
     if (s.original && content.includes(s.original)) content = content.replace(s.original, s.suggested || "");else
     miss++;
   }
-  state.editor.setValue(content);setMode("edit");el.dirty.hidden = state.editor.getValue() === state.baseline;
+  state.editor.setValue(content);setMode("edit");setDirty(state.editor.getValue() !== state.baseline);
   closeModal();toast(miss ? t("已应用采纳项，{n} 处未能定位，记得保存", { n: miss }) : t("已应用采纳项，记得保存"));
 }
 /* ---------- optimizer rule editor ---------- */
@@ -1461,6 +1517,84 @@ async function saveOptimizer() {
   try {const r = await API.putOptimizer(optimizerEditor.getValue());if (r.ok) {toast(t("已保存优化规则"));closeModal();} else toast(t("保存失败"), "err");}
   catch {toast(t("保存失败"), "err");}
 }
+/* ---------- 扫描目录配置 ---------- */
+// 编辑态：auto=[{path,short,label,enabled}], extra=[{path,short,name,enabled}]
+let scanDirsState = { auto: [], extra: [] };
+async function openScanDirs() {
+  try {const d = await API.getScanDirs();scanDirsState = { auto: d.auto || [], extra: d.extra || [] };}
+  catch {toast(t("读取失败"), "err");return;}
+  renderScanDirs();
+  openModal(el.scanDirsModal);
+}
+function renderScanDirs() {
+  const row = (d, isExtra, idx) => {
+    const nameCell = isExtra
+      ? `<input class="src-in sd-name" data-idx="${idx}" value="${esc(d.name || "")}" placeholder="${t("项目名")}" style="max-width:130px" />`
+      : `<span class="sd-label">${esc(d.label || "")}</span>`;
+    const rm = isExtra ? `<button class="icon-btn icon-btn-danger sd-rm" data-idx="${idx}" title="${t("移除")}">✕</button>` : "";
+    return `<label class="sd-row">
+      <input type="checkbox" class="sd-chk" data-kind="${isExtra ? "extra" : "auto"}" data-idx="${idx}" ${d.enabled ? "checked" : ""}/>
+      ${nameCell}
+      <span class="sd-path" title="${esc(d.path)}">${esc(d.short || d.path)}</span>
+      ${rm}
+    </label>`;
+  };
+  let html = `<div class="sd-group-title">${t("默认目录")}</div>`;
+  html += scanDirsState.auto.map((d, i) => row(d, false, i)).join("") || `<div class="src-mut">${t("（无）")}</div>`;
+  html += `<div class="sd-group-title">${t("项目目录")}</div>`;
+  html += scanDirsState.extra.map((d, i) => row(d, true, i)).join("") || `<div class="src-mut">${t("（暂无，下方添加）")}</div>`;
+  el.scanDirsBody.innerHTML = html;
+}
+// 把当前弹窗里的勾选/命名同步回 scanDirsState
+function syncScanDirsFromDom() {
+  el.scanDirsBody.querySelectorAll(".sd-chk").forEach((c) => {
+    const i = +c.dataset.idx;const arr = c.dataset.kind === "extra" ? scanDirsState.extra : scanDirsState.auto;
+    if (arr[i]) arr[i].enabled = c.checked;
+  });
+  el.scanDirsBody.querySelectorAll(".sd-name").forEach((n) => {const i = +n.dataset.idx;if (scanDirsState.extra[i]) scanDirsState.extra[i].name = n.value;});
+}
+/* 文件夹浏览器（服务端目录浏览，支持批量勾选） */
+let dbState = { path: "", parent: "", dirs: [], selected: new Set() };
+async function dbLoad(path) {
+  try {
+    const d = await API.browse(path);
+    dbState.path = d.path;dbState.parent = d.parent || "";dbState.dirs = d.dirs || [];
+    renderDirBrowser();
+  } catch {toast(t("无法读取目录"), "err");}
+}
+function renderDirBrowser() {
+  const $db = document.getElementById("dirBrowser");if (!$db) return;
+  document.getElementById("dbPath").textContent = dbState.path;
+  document.getElementById("dbList").innerHTML = dbState.dirs.map((d) =>
+    `<div class="db-item">
+       <input type="checkbox" class="db-chk" data-path="${esc(d.path)}" ${dbState.selected.has(d.path) ? "checked" : ""}/>
+       <button class="db-enter" data-path="${esc(d.path)}" title="${t("进入")}">📁 ${esc(d.name)}</button>
+     </div>`).join("") || `<div class="src-mut" style="padding:8px">${t("（无子目录）")}</div>`;
+  document.getElementById("dbSel").textContent = t("已选 {n}", { n: dbState.selected.size });
+}
+function dbAddSelected() {
+  if (!dbState.selected.size) {toast(t("未选择目录"), "err");return;}
+  const existing = new Set(scanDirsState.extra.map((e) => e.path));
+  dbState.selected.forEach((p) => {if (!existing.has(p)) scanDirsState.extra.push({ path: p, name: "", enabled: true, short: p });});
+  dbState.selected.clear();
+  toast(t("已添加，记得保存"));
+  renderScanDirs();renderDirBrowser();
+}
+
+async function saveScanDirs() {
+  syncScanDirsFromDom();
+  const disabled = [];
+  scanDirsState.auto.forEach((d) => {if (!d.enabled) disabled.push(d.path);});
+  scanDirsState.extra.forEach((d) => {if (!d.enabled) disabled.push(d.path);});
+  const extra = scanDirsState.extra.map((d) => ({ path: d.path, name: (d.name || "").trim() }));
+  try {
+    const r = await API.putScanDirs({ disabled, extra });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {toast(d.error || t("保存失败"), "err");return;}
+    closeModal();toast(t("已保存，点「扫描」生效"));
+  } catch {toast(t("保存失败"), "err");}
+}
+
 let classifierEditor = null;
 async function openClassifier() {
   let content = "";
@@ -1558,7 +1692,7 @@ function showDiff(oldT, newT, opts) {
 }
 function applyDiff() {
   if (state.diffMode === "update" && state.pendingUpdate) {doApplyUpdate();return;}
-  if (state.diffMode === "ai" && state.aiResult) {ensureEditor();state.editor.setValue(state.aiResult);setMode("edit");el.dirty.hidden = state.editor.getValue() === state.baseline;toast(t("已应用 AI 稿，记得保存"));}
+  if (state.diffMode === "ai" && state.aiResult) {ensureEditor();state.editor.setValue(state.aiResult);setMode("edit");setDirty(state.editor.getValue() !== state.baseline);toast(t("已应用 AI 稿，记得保存"));}
   closeModal();
 }
 async function doCheckUpdate(id) {
@@ -1939,6 +2073,32 @@ if (el.editClassifier) el.editClassifier.addEventListener("click", openClassifie
 if (el.reclassify) el.reclassify.addEventListener("click", () => {closeModal();startClassify(true, false);});
 el.optimizerSave.addEventListener("click", saveOptimizer);
 if (el.classifierSave) el.classifierSave.addEventListener("click", saveClassifier);
+if (el.editScanDirs) el.editScanDirs.addEventListener("click", openScanDirs);
+if (el.scanDirsSave) el.scanDirsSave.addEventListener("click", saveScanDirs);
+if (el.scanDirsModal) el.scanDirsModal.addEventListener("click", (e) => {
+  const add = e.target.closest('[data-act="add-dir"]');
+  if (add) {
+    syncScanDirsFromDom();
+    const p = el.newDirPath.value.trim();if (!p) {toast(t("请输入目录路径"), "err");return;}
+    scanDirsState.extra.push({ path: p, name: el.newDirName.value.trim(), enabled: true, short: p });
+    el.newDirPath.value = "";el.newDirName.value = "";renderScanDirs();return;
+  }
+  const rm = e.target.closest(".sd-rm");
+  if (rm) {syncScanDirsFromDom();scanDirsState.extra.splice(+rm.dataset.idx, 1);renderScanDirs();return;}
+  const tg = e.target.closest('[data-act="toggle-browser"]');
+  if (tg) {
+    const db = document.getElementById("dirBrowser");
+    db.hidden = !db.hidden;
+    if (!db.hidden && !dbState.path) dbLoad("");
+    return;
+  }
+  if (e.target.closest('[data-act="db-up"]')) {if (dbState.parent) dbLoad(dbState.parent);return;}
+  if (e.target.closest('[data-act="db-add-selected"]')) {dbAddSelected();return;}
+  const enter = e.target.closest(".db-enter");
+  if (enter) {dbLoad(enter.dataset.path);return;}
+  const chk = e.target.closest(".db-chk");
+  if (chk) {if (chk.checked) dbState.selected.add(chk.dataset.path);else dbState.selected.delete(chk.dataset.path);document.getElementById("dbSel").textContent = t("已选 {n}", { n: dbState.selected.size });}
+});
 el.openBackup.addEventListener("click", openBackup);
 el.bkSave.addEventListener("click", saveBackupConfig);
 el.bkPush.addEventListener("click", doBackupPush);

@@ -84,6 +84,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/sync-config", s.handlePutSyncConfig)
 	mux.HandleFunc("GET /api/source-auth", s.handleGetSourceAuth)
 	mux.HandleFunc("PUT /api/source-auth", s.handlePutSourceAuth)
+	mux.HandleFunc("GET /api/scan-dirs", s.handleGetScanDirs)
+	mux.HandleFunc("PUT /api/scan-dirs", s.handlePutScanDirs)
+	mux.HandleFunc("GET /api/browse", s.handleBrowse)
 	mux.HandleFunc("POST /api/tags/classify", s.handleClassifyStart)
 	mux.HandleFunc("GET /api/tags/classify/status", s.handleClassifyStatus)
 	mux.HandleFunc("PUT /api/skills/{id}/tags", s.handleSetTags)
@@ -112,7 +115,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 }
 
 func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
-	skills, err := scanner.ScanRoots(s.roots)
+	skills, err := scanner.ScanRoots(s.effectiveRoots())
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": err.Error()})
 		return
@@ -154,6 +157,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		Name        string   `json:"name"`
 		Source      string   `json:"source"`
 		Platform    string   `json:"platform"`
+		Project     string   `json:"project"`
 		Description string   `json:"description"`
 		Dir         string   `json:"dir"`
 		MTime       int64    `json:"mtime"`
@@ -165,7 +169,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		if tags == nil {
 			tags = []string{}
 		}
-		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), string(sk.Platform), sk.Description, sk.Dir, sk.MTime, tags})
+		out = append(out, item{sk.ID(), sk.Name, string(sk.Source), string(sk.Platform), s.projectOf(sk.Dir), sk.Description, sk.Dir, sk.MTime, tags})
 	}
 	writeJSON(w, 200, map[string]any{
 		"conflicts": conflicts, "dups": dups, "dupCounts": dupCounts, "skills": out,

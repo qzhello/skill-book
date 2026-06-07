@@ -102,6 +102,14 @@ body{
 /* 危险操作（删除）：与常规图标按钮区分，hover 显红 */
 .icon-btn-danger{margin-left:4px}
 .icon-btn-danger:hover{color:var(--danger);background:rgba(220,38,38,.10);border-color:rgba(220,38,38,.30)}
+/* AI 优化（图标）：紫色强调 + 未配置时右上角小红点 */
+.icon-btn-ai{color:var(--accent)}
+.icon-btn-ai:hover{color:var(--accent-strong);background:var(--accent-weak);border-color:rgba(124,58,237,.3)}
+.icon-btn-ai.unconfigured{position:relative}
+.icon-btn-ai.unconfigured::after{content:"";position:absolute;top:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--warn);border:2px solid var(--bg-elev)}
+/* 保存（图标）：主操作，实心强调底 */
+.icon-btn-primary{color:var(--on-accent);background:linear-gradient(135deg,var(--accent),var(--accent-strong));border-color:transparent}
+.icon-btn-primary:hover{color:var(--on-accent);background:linear-gradient(135deg,var(--accent-strong),var(--accent));border-color:transparent}
 .btn.loading .ico{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -272,7 +280,10 @@ body{
 .row-name{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .row-name mark{background:var(--accent-weak);color:var(--accent-ink);border-radius:3px;padding:0 1px}
 .row-desc{color:var(--text-dim);font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:118ch}
-.badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:2px 8px;border-radius:999px;border:1px solid var(--line);flex-shrink:0;text-transform:uppercase}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;line-height:1.5;font-weight:600;letter-spacing:.01em;padding:2px 9px;border-radius:999px;border:1px solid var(--line);flex-shrink:0;text-transform:none}
+.brand-ico{flex-shrink:0;display:block}
+/* 左侧树/搜索行的平台品牌图标容器（替代原小圆点） */
+.plat-ico-wrap{display:inline-flex;align-items:center;flex-shrink:0}
 .badge.user{color:var(--accent-ink);border-color:rgba(124,58,237,.3);background:var(--accent-weak)}
 .badge.project{color:#1D4ED8;border-color:rgba(91,155,255,.3);background:rgba(91,155,255,.1)}
 .badge.plugin{color:var(--accent-ink);border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.1)}
@@ -298,23 +309,42 @@ body{
 /* 详情：右栏常驻面板（不再是抽屉） */
 .detail{flex:1;min-width:0;display:flex;flex-direction:column;padding:16px 20px;background:var(--bg-elev)}
 .sheet-head{display:flex;align-items:center;gap:12px}
-.sheet-head-left{flex:1;min-width:0;display:flex;align-items:center;gap:12px}
+.sheet-head-left{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:0}
 .seg-center{flex-shrink:0}              /* 模式切换器：左右两侧 flex:1 把它挤到正中 */
-.sheet-title{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.sheet-title{width:100%;min-width:0;display:flex;align-items:center;gap:8px}
 .sheet-title h3{margin:0;font-size:17px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sheet-badges{display:inline-flex;gap:6px;flex-shrink:0}
 /* 详情：标签独占一行（名字下方），多标签也不挤 */
 .sheet-tags-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:7px}
 /* 标签 pills + 编辑按钮 */
 .sheet-tags{display:inline-flex;gap:5px;flex-wrap:wrap;align-items:center}
-.tag-pill{display:inline-flex;align-items:center;font-size:11.5px;font-weight:500;line-height:1;
-  padding:3px 8px;border-radius:999px;color:var(--accent-ink);background:var(--accent-weak);
+.tag-pill{display:inline-flex;align-items:center;font-size:11px;font-weight:500;line-height:1.5;
+  padding:2px 9px;border-radius:999px;color:var(--accent-ink);background:var(--accent-weak);
   border:1px solid rgba(124,58,237,.28);text-transform:none}
-.tag-edit-btn{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11.5px;
-  color:var(--text-dim);background:transparent;border:1px dashed var(--line);border-radius:999px;padding:3px 8px}
+.tag-edit-btn{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;line-height:1.5;
+  color:var(--text-dim);background:transparent;border:1px dashed var(--line);border-radius:999px;padding:2px 9px}
 .tag-edit-btn:hover{color:var(--accent-ink);border-color:rgba(124,58,237,.4)}
 /* 行内标签（侧栏） */
 .ti-tag{font-size:10.5px;color:var(--accent-ink);background:var(--accent-weak);border-radius:5px;padding:1px 5px;margin-left:4px;text-transform:none}
+/* 设置弹窗：管理/工具按钮组（换行，避免底部越界） */
+.cfg-tools-label{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.cfg-tools{display:flex;flex-wrap:wrap;gap:8px}
+/* 扫描目录配置 */
+.sd-group-title{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.sd-row{display:flex;align-items:center;gap:9px;padding:5px 2px;font-size:12.5px}
+.sd-row .sd-label{flex-shrink:0;font-weight:600;color:var(--accent-ink);min-width:54px}
+.sd-row .sd-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-dim);font-family:var(--mono);font-size:11.5px}
+.sd-row .sd-rm{width:24px;height:24px;flex-shrink:0}
+/* 文件夹浏览器 */
+.dir-browser{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.db-bar{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.db-path{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11.5px;color:var(--text-dim);direction:rtl;text-align:left}
+.db-list{max-height:240px;overflow:auto;padding:4px}
+.db-item{display:flex;align-items:center;gap:8px;padding:2px 4px}
+.db-enter{flex:1;min-width:0;text-align:left;background:none;border:0;cursor:pointer;color:var(--text);font-size:12.5px;
+  padding:4px 6px;border-radius:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db-enter:hover{background:var(--surface-2);color:var(--accent-ink)}
+.db-foot{display:flex;align-items:center;gap:8px;padding:8px 9px;border-top:1px solid var(--line)}
 /* 顶部分类进度条 */
 .cls-bar{position:relative;height:24px;display:flex;align-items:center;gap:10px;
   padding:0 16px;background:var(--accent-weak);border-bottom:1px solid rgba(124,58,237,.2);overflow:hidden}
@@ -343,7 +373,6 @@ body{
 .src-in:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-weak)}
 .sheet-toolbar{display:flex;align-items:center;gap:8px;margin:14px 0 12px;flex-wrap:wrap}
 .toolbar-spacer{flex:1}
-.dirty-dot{font-size:14px;color:var(--warn)}
 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:3px}
 .seg-btn{border:none;background:transparent;color:var(--text-dim);font-family:inherit;font-size:12.5px;font-weight:600;
   padding:7px 14px;border-radius:6px;cursor:pointer;transition:all var(--dur) var(--ease)}
@@ -494,8 +523,8 @@ body{
 .copy-meta{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
 
 /* ---------- Source chip (in title) ---------- */
-.src-chip{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:600;
-  padding:3px 9px;border-radius:999px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:var(--accent-ink);
+.src-chip{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;font-family:inherit;font-size:11px;line-height:1.5;font-weight:600;
+  padding:2px 9px;border-radius:999px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:var(--accent-ink);
   max-width:240px;overflow:hidden;transition:all var(--dur) var(--ease)}
 .src-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .src-chip:hover{border-color:var(--accent);color:var(--accent)}

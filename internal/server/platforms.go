@@ -15,7 +15,7 @@ var platformIDRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
 func (s *Server) platformIDs() []string {
 	seen := map[string]bool{}
 	var ids []string
-	for _, r := range s.roots {
+	for _, r := range s.effectiveRoots() {
 		id := string(r.Platform)
 		if id == "" || seen[id] {
 			continue

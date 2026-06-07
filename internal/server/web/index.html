@@ -141,15 +141,12 @@
           </div>
         </div>
       </div>
-      <button id="aiOptimize" class="btn btn-ai btn-sm" title="用 AI 优化这份 skill" data-i18n-title="用 AI 优化这份 skill">
-        <svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
-        <span class="btn-label" data-i18n="AI 优化">AI 优化</span>
+      <button id="aiOptimize" class="icon-btn icon-btn-ai" title="用 AI 优化这份 skill" aria-label="用 AI 优化这份 skill" data-i18n-title="用 AI 优化这份 skill" data-i18n-aria="用 AI 优化这份 skill">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
       </button>
-      <button id="save" class="btn btn-primary btn-sm">
-        <svg class="ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
-        <span class="btn-label" data-i18n="保存">保存</span>
+      <button id="save" class="icon-btn icon-btn-primary" title="保存" aria-label="保存" data-i18n-title="保存" data-i18n-aria="保存" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
       </button>
-      <span id="dirty" class="dirty-dot" hidden>●</span>
       <button id="deleteSkill" class="icon-btn icon-btn-danger" title="删除（移到废纸篓）" aria-label="删除该 skill" data-i18n-title="删除（移到废纸篓）" data-i18n-aria="删除该 skill">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
       </button>
@@ -198,13 +195,17 @@
     <label class="field"><span data-i18n="来源访问令牌（私有仓库）">来源访问令牌（私有仓库）</span> <i id="srcTokenHint"></i>
       <input id="cfgSrcToken" type="password" placeholder="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" data-i18n-ph="留空则不修改；私有仓库需 repo 读取权限的 GitHub token" /></label>
     <div class="modal-note" data-i18n="key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。">key 与令牌仅保存在本机 <code>~/.skillbook/</code>（0600），不会上传、不回显。</div>
+    <div class="cfg-tools-label" data-i18n="管理与工具">管理与工具</div>
+    <div class="cfg-tools">
+      <button id="editScanDirs" class="btn btn-ghost btn-sm" data-i18n="扫描目录">扫描目录</button>
+      <button id="openBackup" class="btn btn-ghost btn-sm" data-i18n="备份与同步">备份与同步</button>
+      <button id="editOptimizer" class="btn btn-ghost btn-sm" data-i18n="编辑优化规则">编辑优化规则</button>
+      <button id="editClassifier" class="btn btn-ghost btn-sm" data-i18n="编辑分类规则">编辑分类规则</button>
+      <button id="reclassify" class="btn btn-ghost btn-sm" data-i18n="全部重新分类">全部重新分类</button>
+    </div>
   </div>
   <div class="modal-foot">
     <button id="cfgTest" class="btn btn-ghost" data-i18n="测试连接">测试连接</button>
-    <button id="editOptimizer" class="btn btn-ghost" data-i18n="编辑优化规则">编辑优化规则</button>
-    <button id="editClassifier" class="btn btn-ghost" data-i18n="编辑分类规则">编辑分类规则</button>
-    <button id="reclassify" class="btn btn-ghost" data-i18n="全部重新分类">全部重新分类</button>
-    <button id="openBackup" class="btn btn-ghost" data-i18n="备份与同步">备份与同步</button>
     <span id="cfgStatus" class="cfg-status"></span>
     <div class="toolbar-spacer"></div>
     <button id="cfgSave" class="btn btn-primary" data-i18n="保存">保存</button>
@@ -302,6 +303,35 @@
     <span class="src-mut" data-i18n="保存在本机 ~/.skillbook/optimizer.md">保存在本机 <code>~/.skillbook/optimizer.md</code></span>
     <div class="toolbar-spacer"></div>
     <button id="optimizerSave" class="btn btn-primary" data-i18n="保存规则">保存规则</button>
+  </div>
+</div>
+
+<div id="scanDirsModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="扫描目录">
+  <div class="modal-head"><h3 data-i18n="扫描目录">扫描目录</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-note" data-i18n="勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。">勾选要扫描的目录。每个额外目录视为一个项目，递归扫描其下所有 SKILL.md，项目名默认取文件夹名。</div>
+  <div id="scanDirsBody"></div>
+  <div class="src-row" style="margin-top:10px">
+    <input class="src-in" id="newDirPath" placeholder="/绝对路径/到/项目" style="flex:2" />
+    <input class="src-in" id="newDirName" placeholder="项目名（可选）" data-i18n-ph="项目名（可选）" style="flex:1" />
+    <button class="src-btn" data-act="add-dir" data-i18n="添加">添加</button>
+    <button class="src-btn" data-act="toggle-browser" data-i18n="浏览…">浏览…</button>
+  </div>
+  <div id="dirBrowser" class="dir-browser" hidden>
+    <div class="db-bar">
+      <button class="src-btn" data-act="db-up" title="上级目录" data-i18n-title="上级目录">↑</button>
+      <span id="dbPath" class="db-path"></span>
+    </div>
+    <div id="dbList" class="db-list"></div>
+    <div class="db-foot">
+      <span id="dbSel" class="src-mut"></span>
+      <div class="toolbar-spacer"></div>
+      <button class="src-btn primary" data-act="db-add-selected" data-i18n="添加所选">添加所选</button>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <span class="src-mut" data-i18n="保存后点「扫描」生效">保存后点「扫描」生效</span>
+    <div class="toolbar-spacer"></div>
+    <button id="scanDirsSave" class="btn btn-primary" data-i18n="保存">保存</button>
   </div>
 </div>
 
