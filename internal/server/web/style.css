@@ -176,6 +176,8 @@ body{
 .src-check-line{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--text);cursor:pointer}
 .src-check-line input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
 .src-targets{display:flex;align-items:center;gap:14px;margin-top:8px;font-size:12.5px;color:var(--text-dim)}
+.src-token-line{display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:12.5px;color:var(--text-dim)}
+.src-token-line i{color:var(--muted);font-style:normal}
 .src-targets label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
 .src-targets input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
 .src-update-note{color:var(--accent-ink);border:1px solid var(--accent-weak);background:var(--accent-weak);border-radius:8px;padding:8px 10px}

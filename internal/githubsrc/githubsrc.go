@@ -121,6 +121,21 @@ func validSubSegment(s string) bool {
 	return subSegmentRe.MatchString(s)
 }
 
+// ValidSubpath 校验仓库内子路径：空串合法（根目录）；否则按 "/" 分段，
+// 每段必须合法且非 ".."，防路径穿越。允许形如 "cr" 或 "a/b/c"。
+func ValidSubpath(subpath string) bool {
+	subpath = strings.Trim(strings.TrimSpace(subpath), "/")
+	if subpath == "" {
+		return true
+	}
+	for _, seg := range strings.Split(subpath, "/") {
+		if !validSubSegment(seg) {
+			return false
+		}
+	}
+	return true
+}
+
 // RawSkillURL 拼接 raw.githubusercontent.com 上 SKILL.md 的只读地址。
 // ref 为空时用 "HEAD"；subpath 为空时不含该段。
 func RawSkillURL(owner, repo, ref, subpath string) string {

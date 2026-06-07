@@ -18,6 +18,10 @@ const I18N = {
     "每 3 天": "Every 3 days",
     "每周": "Weekly",
     "自动检测更新": "Auto-check for updates",
+    "仓库内子路径（SKILL.md 所在目录，如 cr；根目录留空）": "Subpath in repo (dir containing SKILL.md, e.g. cr; blank for root)",
+    "私有仓库访问令牌": "Private repo access token",
+    "ghp_…（对所有私有来源通用，留空不修改）": "ghp_… (shared by all private sources, blank keeps current)",
+    "访问令牌已保存": "Access token saved",
     "更新目标": "Update target",
     "检测到上游有更新，点「检查更新」查看并应用。": "Upstream has updates — click “Check for updates” to review and apply.",
     "有可用更新": "Update available",
@@ -1309,10 +1313,12 @@ function renderSourceChip() {
   if (label.length > 30) label = label.slice(0, 30) + "…";
   el.sourceChip.innerHTML = `${LINK_SVG}<span>${esc(label)}</span>`;
 }
-function openSourceModal() {
+async function openSourceModal() {
   const s = state.source || {};
   const persisted = s.source_url && !s.inferred;
   const isGithub = s.source_kind === "github_repo";
+  let hasToken = false;
+  try {hasToken = !!(await API.getSourceAuth()).hasToken;} catch {/* ignore */}
   const kindOpts = ["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${t(KIND_LABEL[k])}</option>`).join("");
   // 更新目标：默认取已存 targets，否则用该 skill 当前所在平台
   const tset = new Set((s.targets || (state.current && state.current.platform) || "claude").split(",").map((x) => x.trim()).filter(Boolean));
@@ -1331,11 +1337,16 @@ function openSourceModal() {
         <select class="src-in" id="srcKind">${kindOpts}</select>
         <input class="src-in" id="srcRef" placeholder="${t("分支/tag/commit")}" value="${esc(s.source_ref || "")}" />
       </div>
+      <input class="src-in" id="srcSubpath" placeholder="${t("仓库内子路径（SKILL.md 所在目录，如 cr；根目录留空）")}" value="${esc(s.source_subpath || "")}" />
       <input class="src-in" id="srcNote" placeholder="${t("备注（可选）")}" value="${esc(s.source_note || "")}" />
       <label class="src-check-line"><input type="checkbox" id="srcAuto" ${s.auto_check ? "checked" : ""}/> <span>${t("自动检测更新")}</span></label>
       <div class="src-targets"><span class="src-mut">${t("更新目标")}</span>
         ${targetBoxes}
       </div>
+      ${isGithub ? `<div class="src-token-line">
+        <span class="src-mut">${t("私有仓库访问令牌")} <i>${hasToken ? t("（已配置，可留空）") : t("（未配置）")}</i></span>
+        <input class="src-in" id="srcTokenIn" type="password" placeholder="${t("ghp_…（对所有私有来源通用，留空不修改）")}" />
+      </div>` : ""}
     </div>
     <div class="src-row" style="margin-top:14px">
       <button class="src-btn primary" data-act="src-save">${t("保存")}</button>
@@ -1885,7 +1896,11 @@ el.sourceModalBody.addEventListener("click", async (e) => {
   const act = b.dataset.act,id = state.current.id;
   if (act === "src-copy") {if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url);toast(t("已复制来源链接"));} else
   if (act === "src-check") {closeModal();doCheckUpdate(id);} else
-  if (act === "src-save") {await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets() });} else
+  if (act === "src-save") {
+    const tokEl = $("#srcTokenIn");
+    if (tokEl && tokEl.value.trim()) {try {await API.putSourceAuth({ token: tokEl.value.trim() });toast(t("访问令牌已保存"));} catch {/* ignore */}}
+    await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_subpath: $("#srcSubpath") ? $("#srcSubpath").value.trim() : "", source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets() });
+  } else
   if (act === "src-clear") {if (confirm(t("清除该 skill 的来源信息？"))) await saveSource(id, { source_url: "" });}
 });
 el.fileTree.addEventListener("click", (e) => {

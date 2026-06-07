@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillbook/internal/githubsrc"
 	"skillbook/internal/store"
 )
 
@@ -146,15 +147,21 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		SourceURL  string   `json:"source_url"`
-		SourceKind string   `json:"source_kind"`
-		SourceRef  string   `json:"source_ref"`
-		SourceNote string   `json:"source_note"`
-		SyncPolicy string   `json:"sync_policy"`
-		AutoCheck  bool     `json:"auto_check"`
-		Targets    []string `json:"targets"`
+		SourceURL     string   `json:"source_url"`
+		SourceKind    string   `json:"source_kind"`
+		SourceRef     string   `json:"source_ref"`
+		SourceSubpath string   `json:"source_subpath"`
+		SourceNote    string   `json:"source_note"`
+		SyncPolicy    string   `json:"sync_policy"`
+		AutoCheck     bool     `json:"auto_check"`
+		Targets       []string `json:"targets"`
 	}
 	if !readJSONBody(w, r, &body) {
+		return
+	}
+	subpath := strings.Trim(strings.TrimSpace(body.SourceSubpath), "/")
+	if !githubsrc.ValidSubpath(subpath) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "非法子路径（仅允许字母数字、. _ - / 分段，且不能含 ..）"})
 		return
 	}
 
@@ -191,15 +198,16 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		targets = string(sk.Platform) // 默认目标 = 该 skill 当前所在平台
 	}
 	src := store.Source{
-		SkillID:    id,
-		SourceKind: kind,
-		SourceURL:  url,
-		SourceRef:  body.SourceRef,
-		SourceNote: body.SourceNote,
-		SyncPolicy: syncPolicy,
-		AutoCheck:  body.AutoCheck && kind == "github_repo", // 仅 github_repo 支持自动检测
-		Targets:    targets,
-		UpdatedAt:  time.Now().Unix(),
+		SkillID:       id,
+		SourceKind:    kind,
+		SourceURL:     url,
+		SourceRef:     body.SourceRef,
+		SourceSubpath: subpath,
+		SourceNote:    body.SourceNote,
+		SyncPolicy:    syncPolicy,
+		AutoCheck:     body.AutoCheck && kind == "github_repo", // 仅 github_repo 支持自动检测
+		Targets:       targets,
+		UpdatedAt:     time.Now().Unix(),
 	}
 	if err := s.st.PutSource(src); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
