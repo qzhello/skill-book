@@ -77,6 +77,33 @@ func TestBackupPushWithInjectedService(t *testing.T) {
 	}
 }
 
+func TestBackupRestoreRejectsEmptyName(t *testing.T) {
+	srv := newSrv(t)
+	if err := backup.Save(backup.Config{Endpoint: "e", Bucket: "b", AccessKey: "a", SecretKey: "s"}); err != nil {
+		t.Fatal(err)
+	}
+	rec := do(t, srv, http.MethodPost, "/api/backup/restore", `{"name":"  "}`)
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 for blank name, got %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBackupListUnconfigured(t *testing.T) {
+	srv := newSrv(t)
+	rec := do(t, srv, http.MethodGet, "/api/backup/list", "")
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 when unconfigured, got %d", rec.Code)
+	}
+}
+
+func TestBackupTestUnconfigured(t *testing.T) {
+	srv := newSrv(t)
+	rec := do(t, srv, http.MethodPost, "/api/backup/test", "")
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 when unconfigured, got %d", rec.Code)
+	}
+}
+
 // memStore 是路由测试用的内存 ArchiveStore。
 type memStore struct{ objs map[string][]byte }
 

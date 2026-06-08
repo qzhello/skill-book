@@ -9,7 +9,6 @@ const I18N = {
     "留空则不修改；私有仓库需 repo 读取权限的 GitHub token": "Leave blank to keep; private repos need a GitHub token with repo read scope",
     "克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。": "Clones that skill directory from the public repo into ~/.claude/skills and fills in the source link. Only github.com is supported.",
     "保存在本机 ~/.skillbook/optimizer.md": "Stored locally in ~/.skillbook/optimizer.md",
-    "备份范围：自动发现的各平台用户级 skills 目录。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。": "Backup scope: auto-discovered per-platform user-level skills directories (~/.<tool>/skills). Token is written only to ~/.skillbook/backup.json (0600) — not echoed, uploaded, or included in backups. Requires a token with repo write scope.",
     // 来源自动检测 / 更新
     "自动检测来源更新": "Auto-check source updates",
     "关闭": "Off",
@@ -45,7 +44,6 @@ const I18N = {
     "名称": "Name",
     "GitHub 链接": "GitHub link",
     "本地名称": "Local name",
-    "备份仓库": "Backup repo",
     "分支": "Branch",
     // 顶栏 / 通用按钮
     "收起 / 展开左侧目录": "Collapse / expand sidebar",
@@ -205,7 +203,6 @@ const I18N = {
     "保存规则": "Save rules",
     // 备份
     "未配置": "Not configured",
-    "备份仓库 ": "Backup repo ",
     "私有仓库，需先在 GitHub 建好": "private repo, create it on GitHub first",
     "分支 ": "Branch ",
     "默认 main": "default main",
@@ -213,7 +210,6 @@ const I18N = {
     "留空则不修改已存的 token": "leave empty to keep saved token",
     "备份范围：": "Backup scope: ",
     " 与 ": " and ",
-    "。Token 仅写入本机 ": ". Token is written only on this machine at ",
     "（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 ": " (0600); never echoed, uploaded, or included in backups. Requires write access via the ",
     " scope。": " scope.",
     "保存配置": "Save config",
@@ -317,14 +313,12 @@ const I18N = {
     "载入备份配置失败": "Failed to load backup config",
     "已保存（留空不改）": "saved (leave empty to keep)",
     "必填": "required",
-    "请填写备份仓库地址": "Please enter the backup repo URL",
     "保存中…": "Saving…",
     "已保存备份配置": "Backup config saved",
     "备份中…": "Backing up…",
     "备份完成 ✓": "Backup complete ✓",
     "没有变更": "No changes",
     "备份失败": "Backup failed",
-    "将用备份仓库的内容覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local per-platform skills directories with the backup repo; existing directories are moved to Trash first (recoverable). Continue?",
     "恢复中…": "Restoring…",
     "已恢复": "Restored",
     "恢复失败": "Restore failed",
@@ -1678,7 +1672,7 @@ async function saveClassifier() {
   catch {toast(t("保存失败"), "err");}
 }
 
-/* ---------- GitHub 备份与恢复 ---------- */
+/* ---------- S3 备份与恢复 ---------- */
 function fmtTime(unix) {
   if (!unix) return t("尚未备份");
   try {
@@ -1717,13 +1711,13 @@ async function loadBackupList(configured) {
     el.bkList.innerHTML = arr.map((a) => `
       <div class="bk-item">
         <div class="bk-item-main">
-          <span class="bk-item-time">${a.time ? fmtTime(a.time) : a.name}</span>
+          <span class="bk-item-time">${a.time ? fmtTime(a.time) : esc(a.name)}</span>
           <span class="bk-item-meta">${fmtSize(a.size)}${a.fileCount >= 0 ? " · " + t("{n} 个文件", { n: a.fileCount }) : ""}</span>
         </div>
-        <button class="btn btn-ghost btn-sm bk-restore" data-name="${a.name}">${t("恢复")}</button>
+        <button class="btn btn-ghost btn-sm bk-restore" data-name="${esc(a.name)}">${t("恢复")}</button>
       </div>`).join("");
     el.bkList.querySelectorAll(".bk-restore").forEach((b) =>
-      b.addEventListener("click", () => doBackupRestore(b.dataset.name)));
+      b.addEventListener("click", () => doBackupRestore(b.dataset.name, b)));
   } catch { el.bkList.innerHTML = `<div class="bk-empty">${t("获取备份列表失败")}</div>`; }
 }
 
@@ -1780,8 +1774,9 @@ async function doBackupPush() {
   finally { el.bkPush.classList.remove("loading"); el.bkPush.disabled = false; el.bkStatus.textContent = ""; }
 }
 
-async function doBackupRestore(name) {
+async function doBackupRestore(name, btn) {
   if (!confirm(t("将用该备份覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？"))) return;
+  if (btn) { btn.classList.add("loading"); btn.disabled = true; }
   el.bkStatus.textContent = t("恢复中…");
   try {
     const r = await API.backupRestore(name);
@@ -1789,7 +1784,7 @@ async function doBackupRestore(name) {
     if (r.ok) { toast(d.message || t("已恢复")); closeModal(); doScan(); }
     else { toast(d.error || t("恢复失败"), "err"); }
   } catch { toast(t("恢复失败"), "err"); }
-  finally { el.bkStatus.textContent = ""; }
+  finally { el.bkStatus.textContent = ""; if (btn) { btn.classList.remove("loading"); btn.disabled = false; } }
 }
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"),b = (newT || "").split("\n");
