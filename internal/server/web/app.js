@@ -154,7 +154,7 @@ const I18N = {
     "测试中…": "Testing…",
     "连接成功 ✓": "Connected ✓",
     "连接失败": "Connection failed",
-    "请填写 Endpoint、Bucket、Access Key": "Please fill in Endpoint, Bucket, Access Key",
+    "请先填写：{f}": "Please fill in: {f}",
     "将用该备份覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local per-platform skills directories with this backup; existing directories are moved to Trash first (recoverable). Continue?",
     "备份范围：自动发现的各平台用户级 skills 目录。Secret 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。": "Backup scope: auto-discovered per-platform user-level skills directories (~/.<tool>/skills). The secret is written only to ~/.skillbook/backup.json (0600) — never echoed, uploaded, or included in backups.",
     // 新建模态
@@ -1681,6 +1681,16 @@ function fmtTime(unix) {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   } catch {return "—";}
 }
+// 记录后端是否已存有 Secret：用于「自动保存」时判断 Secret 是否为必填
+// （已存在时表单留空表示沿用原值，不算缺失）。
+let backupHasSecret = false;
+
+// ensureSettingsOpen 展开「S3 配置」可折叠面板，便于用户补全/保存。
+function ensureSettingsOpen() {
+  const d = document.querySelector(".bk-settings");
+  if (d) d.open = true;
+}
+
 async function openBackup() {
   openModal(el.backupModal);
   el.bkStatus.textContent = ""; el.bkSecretKey.value = "";
@@ -1693,10 +1703,13 @@ async function openBackup() {
     el.bkKeep.value = cfg.keepCount || 20;
     el.bkAccessKey.value = cfg.accessKey || "";
     el.bkUseSSL.checked = cfg.useSSL !== false;
+    backupHasSecret = !!cfg.hasSecret;
     el.bkSecretHint.textContent = cfg.hasSecret ? t("已保存（留空不改）") : t("必填");
     el.backupStatus.textContent = st.configured ?
       t("上次备份：{t} · 共 {n} 份", { t: st.lastBackup ? fmtTime(st.lastBackup) : "—", n: st.count || 0 }) :
       t("尚未配置备份（在下方 S3 配置中填写）");
+    // 尚未配置时自动展开配置面板，避免用户找不到「保存配置」。
+    if (!st.configured) ensureSettingsOpen();
     await loadBackupList(st.configured);
   } catch { el.backupStatus.textContent = t("载入备份配置失败"); }
 }
@@ -1741,19 +1754,34 @@ function collectBackupCfg() {
   };
 }
 
-async function saveBackupConfig() {
+// ensureBackupSaved 校验必填项并把当前表单保存到后端。
+// 缺失项会给出明确提示并展开配置面板；保存成功返回 true。
+// Secret 仅在「后端尚无、表单也为空」时算缺失（已存在时留空表示沿用原值）。
+async function ensureBackupSaved() {
   const cfg = collectBackupCfg();
-  if (!cfg.endpoint || !cfg.bucket || !cfg.accessKey) { toast(t("请填写 Endpoint、Bucket、Access Key"), "err"); return; }
+  const missing = [];
+  if (!cfg.endpoint) missing.push("Endpoint");
+  if (!cfg.bucket) missing.push("Bucket");
+  if (!cfg.accessKey) missing.push("Access Key");
+  if (!cfg.secretKey && !backupHasSecret) missing.push("Secret Key");
+  if (missing.length) { toast(t("请先填写：{f}", { f: missing.join("、") }), "err"); ensureSettingsOpen(); return false; }
   el.bkStatus.textContent = t("保存中…");
   try {
     const r = await API.putBackupConfig(cfg);
     const d = await r.json().catch(() => ({}));
-    if (r.ok) { el.bkStatus.textContent = ""; el.bkSecretKey.value = ""; toast(t("已保存备份配置")); await openBackup(); }
-    else { el.bkStatus.textContent = ""; toast(d.error || t("保存失败"), "err"); }
-  } catch { el.bkStatus.textContent = ""; toast(t("保存失败"), "err"); }
+    el.bkStatus.textContent = "";
+    if (!r.ok) { toast(d.error || t("保存失败"), "err"); return false; }
+    el.bkSecretKey.value = ""; backupHasSecret = true;
+    return true;
+  } catch { el.bkStatus.textContent = ""; toast(t("保存失败"), "err"); return false; }
+}
+
+async function saveBackupConfig() {
+  if (await ensureBackupSaved()) { toast(t("已保存备份配置")); await openBackup(); }
 }
 
 async function testBackupConn() {
+  if (!(await ensureBackupSaved())) return; // 先保存当前表单，再用已存配置测试
   el.bkTest.classList.add("loading"); el.bkTest.disabled = true; el.bkStatus.textContent = t("测试中…");
   try {
     const r = await API.backupTest();
@@ -1764,6 +1792,7 @@ async function testBackupConn() {
 }
 
 async function doBackupPush() {
+  if (!(await ensureBackupSaved())) return; // 先保存当前表单，避免「填了没保存」直接备份失败
   el.bkPush.classList.add("loading"); el.bkPush.disabled = true; el.bkStatus.textContent = t("备份中…");
   try {
     const r = await API.backupPush();
