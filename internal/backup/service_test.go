@@ -4,160 +4,163 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
-// fakeRunner 记录所有 git 调用，并按 args 前缀返回预设输出。
-type fakeRunner struct {
-	calls   [][]string
-	envs    [][]string
-	outputs map[string]string // key: 以空格连接的 args 前缀匹配
+// fakeStore 内存实现 ArchiveStore，供服务测试使用。
+type fakeStore struct {
+	objs    map[string][]byte
+	metas   map[string]map[string]string
+	deleted []string
 }
 
-func (f *fakeRunner) run(_ context.Context, _ string, env []string, args ...string) (string, error) {
-	f.calls = append(f.calls, args)
-	f.envs = append(f.envs, env)
-	joined := strings.Join(args, " ")
-	for k, v := range f.outputs {
-		if strings.Contains(joined, k) {
-			return v, nil
+func newFakeStore() *fakeStore {
+	return &fakeStore{objs: map[string][]byte{}, metas: map[string]map[string]string{}}
+}
+func (f *fakeStore) Put(_ context.Context, key string, data []byte, meta map[string]string) error {
+	f.objs[key] = data
+	f.metas[key] = meta
+	return nil
+}
+func (f *fakeStore) List(_ context.Context) ([]ArchiveInfo, error) {
+	var out []ArchiveInfo
+	for k, d := range f.objs {
+		name := k[len("skillbook/"):]
+		fc := -1
+		if f.metas[k] != nil {
+			if v, ok := f.metas[k]["filecount"]; ok {
+				if n := parseIntSafe(v); n >= 0 {
+					fc = n
+				}
+			}
 		}
+		out = append(out, ArchiveInfo{Name: name, Key: k, Time: parseArchiveTime(name), Size: int64(len(d)), FileCount: fc})
 	}
-	return "", nil
-}
-
-func newService(t *testing.T, f *fakeRunner) *Service {
-	return &Service{
-		WorkDir: filepath.Join(t.TempDir(), "backup"),
-		Run:     f.run,
-		Srcs: []SrcDir{
-			{Sub: "claude", Path: filepath.Join(t.TempDir(), "claude-src")},
-		},
-	}
-}
-
-// 仅作测试哨兵字符串（断言它不出现在 git 参数里），刻意不用真实 PAT 前缀。
-const secretToken = "FAKE-SENTINEL-TOKEN-DO-NOT-USE-0001"
-
-// assertNoTokenLeak 断言 token 的“值”从未出现在任何 git 命令行参数里。
-func assertNoTokenLeak(t *testing.T, f *fakeRunner) {
-	t.Helper()
-	for _, call := range f.calls {
-		for _, a := range call {
-			if strings.Contains(a, secretToken) {
-				t.Fatalf("token 泄漏进 git 参数: %v", call)
+	// 倒序
+	for i := 0; i < len(out); i++ {
+		for j := i + 1; j < len(out); j++ {
+			if out[j].Time > out[i].Time {
+				out[i], out[j] = out[j], out[i]
 			}
 		}
 	}
+	return out, nil
+}
+func (f *fakeStore) Get(_ context.Context, key string) ([]byte, error) {
+	d, ok := f.objs[key]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return d, nil
+}
+func (f *fakeStore) Delete(_ context.Context, key string) error {
+	delete(f.objs, key)
+	f.deleted = append(f.deleted, key)
+	return nil
+}
+func (f *fakeStore) Test(_ context.Context) error { return nil }
+
+func parseIntSafe(s string) int {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return -1
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
-func TestPushCommitsAndPushesWhenChanged(t *testing.T) {
-	f := &fakeRunner{outputs: map[string]string{"status --porcelain": " M claude/x\n"}}
-	s := newService(t, f)
-	// 准备源文件
-	src := s.Srcs[0].Path
-	if err := os.MkdirAll(src, 0o755); err != nil {
+func newSvc(t *testing.T, fs *fakeStore) *Service {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("hi"), 0o644); err != nil {
-		t.Fatal(err)
+	return &Service{
+		Srcs:     []SrcDir{{Sub: "claude", Path: src}},
+		NewStore: func(Config) (ArchiveStore, error) { return fs, nil },
 	}
+}
 
-	cfg := Config{RepoURL: "https://github.com/me/bk", Token: secretToken}
-	res, err := s.Push(context.Background(), cfg)
+func cfgOK() Config {
+	return Config{Endpoint: "e", Bucket: "b", AccessKey: "ak", SecretKey: "sk", Prefix: "skillbook/"}
+}
+
+func TestPushUploadsArchive(t *testing.T) {
+	fs := newFakeStore()
+	s := newSvc(t, fs)
+	res, err := s.Push(context.Background(), cfgOK())
 	if err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if !res.Changed {
-		t.Fatalf("expected Changed=true")
+	if res.FileCount != 1 {
+		t.Fatalf("FileCount=%d want 1", res.FileCount)
 	}
-	if !hasCall(f, "commit") || !hasCall(f, "push") {
-		t.Fatalf("expected commit+push, calls: %v", f.calls)
-	}
-	assertNoTokenLeak(t, f)
-	// token 必须经环境变量传递
-	if !envHasToken(f) {
-		t.Fatalf("token 应通过 SKILLBOOK_GIT_TOKEN 环境变量传递")
+	if len(fs.objs) != 1 {
+		t.Fatalf("objs=%d want 1", len(fs.objs))
 	}
 }
 
-func TestPushSkipsWhenNoChange(t *testing.T) {
-	f := &fakeRunner{outputs: map[string]string{"status --porcelain": "\n"}}
-	s := newService(t, f)
-	if err := os.MkdirAll(s.Srcs[0].Path, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	res, err := s.Push(context.Background(), Config{RepoURL: "https://github.com/me/bk", Token: secretToken})
-	if err != nil {
+func TestPushPrunesOldestBeyondKeepCount(t *testing.T) {
+	fs := newFakeStore()
+	// 预置 3 个旧归档，时间递增
+	fs.objs["skillbook/skillbook-20260101-000000.tar.gz"] = []byte("a")
+	fs.objs["skillbook/skillbook-20260102-000000.tar.gz"] = []byte("b")
+	fs.objs["skillbook/skillbook-20260103-000000.tar.gz"] = []byte("c")
+	s := newSvc(t, fs)
+	cfg := cfgOK()
+	cfg.KeepCount = 2
+	if _, err := s.Push(context.Background(), cfg); err != nil {
 		t.Fatalf("Push: %v", err)
 	}
-	if res.Changed {
-		t.Fatalf("expected Changed=false on no diff")
+	// push 后共 4 个，保留 2 个 → 删 2 个最旧的（20260101、20260102）
+	if len(fs.objs) != 2 {
+		t.Fatalf("after prune objs=%d want 2 (deleted=%v)", len(fs.objs), fs.deleted)
 	}
-	if hasCall(f, "commit") || hasCall(f, "push") {
-		t.Fatalf("should not commit/push when clean, calls: %v", f.calls)
+	if _, ok := fs.objs["skillbook/skillbook-20260101-000000.tar.gz"]; ok {
+		t.Fatal("最旧归档应被删除")
 	}
-	assertNoTokenLeak(t, f)
 }
 
-func TestRestoreTrashesThenRestores(t *testing.T) {
-	f := &fakeRunner{}
-	s := newService(t, f)
-	// 工作仓库里放好“远程已拉取”的内容
-	sub := filepath.Join(s.WorkDir, "claude")
-	if err := os.MkdirAll(sub, 0o755); err != nil {
+func TestRestoreSpecificVersion(t *testing.T) {
+	fs := newFakeStore()
+	s := newSvc(t, fs)
+	// 先 push 生成一个归档
+	if _, err := s.Push(context.Background(), cfgOK()); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(sub, "SKILL.md"), []byte("restored"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	// 本地已有旧目录
-	if err := os.MkdirAll(s.Srcs[0].Path, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(s.Srcs[0].Path, "old.md"), []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	list, _ := fs.List(context.Background())
+	name := list[0].Name
 
+	// 改恢复目标到新目录
+	dst := t.TempDir()
+	s.Srcs[0].Path = dst
+	if err := os.WriteFile(filepath.Join(dst, "stale.md"), []byte("stale"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var trashed []string
 	trashFn := func(p string) (string, error) { trashed = append(trashed, p); return p, os.RemoveAll(p) }
 
-	res, err := s.Restore(context.Background(), Config{RepoURL: "https://github.com/me/bk", Token: secretToken}, trashFn)
+	res, err := s.Restore(context.Background(), cfgOK(), name, trashFn)
 	if err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
-	if !res.Changed {
-		t.Fatalf("expected restored")
+	if res.Restored != 1 {
+		t.Fatalf("Restored=%d want 1", res.Restored)
 	}
-	if len(trashed) != 1 || trashed[0] != s.Srcs[0].Path {
-		t.Fatalf("旧目录未被移废纸篓: %v", trashed)
+	if len(trashed) != 1 {
+		t.Fatalf("旧目录应入废纸篓: %v", trashed)
 	}
-	if b, _ := os.ReadFile(filepath.Join(s.Srcs[0].Path, "SKILL.md")); string(b) != "restored" {
-		t.Fatalf("恢复内容不正确: %q", b)
+	if b, _ := os.ReadFile(filepath.Join(dst, "SKILL.md")); string(b) != "x" {
+		t.Fatalf("恢复内容=%q want x", b)
 	}
-	if !hasCall(f, "fetch") || !hasCall(f, "reset") {
-		t.Fatalf("expected fetch+reset, calls: %v", f.calls)
-	}
-	assertNoTokenLeak(t, f)
 }
 
-func hasCall(f *fakeRunner, sub string) bool {
-	for _, c := range f.calls {
-		if strings.Contains(strings.Join(c, " "), sub) {
-			return true
-		}
+func TestRestoreRejectsBadName(t *testing.T) {
+	fs := newFakeStore()
+	s := newSvc(t, fs)
+	_, err := s.Restore(context.Background(), cfgOK(), "../evil.tar.gz", func(p string) (string, error) { return p, nil })
+	if err == nil {
+		t.Fatal("非法归档名应被拒绝")
 	}
-	return false
-}
-
-func envHasToken(f *fakeRunner) bool {
-	for _, env := range f.envs {
-		for _, e := range env {
-			if e == "SKILLBOOK_GIT_TOKEN="+secretToken {
-				return true
-			}
-		}
-	}
-	return false
 }

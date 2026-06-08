@@ -11,38 +11,41 @@ import (
 	"skillbook/internal/backup"
 )
 
-func TestBackupConfigPutThenGetHidesToken(t *testing.T) {
-	srv := newSrv(t) // HOME 已指向临时目录
+func TestBackupConfigPutThenGetHidesSecret(t *testing.T) {
+	srv := newSrv(t)
 	rec := do(t, srv, http.MethodPut, "/api/backup/config",
-		`{"repoURL":"https://github.com/me/skill-backup","branch":"main","token":"ghp_secret_xyz"}`)
+		`{"endpoint":"s3.amazonaws.com","bucket":"bk","accessKey":"AKIA","secretKey":"super-secret-xyz"}`)
 	if rec.Code != 200 {
 		t.Fatalf("put code=%d body=%s", rec.Code, rec.Body.String())
 	}
 	rec = do(t, srv, http.MethodGet, "/api/backup/config", "")
 	body := rec.Body.String()
-	if strings.Contains(body, "ghp_secret_xyz") || strings.Contains(body, "token") && strings.Contains(body, "ghp_") {
-		t.Fatalf("token leaked in config response: %s", body)
+	if strings.Contains(body, "super-secret-xyz") {
+		t.Fatalf("secret leaked: %s", body)
 	}
-	if !strings.Contains(body, `"hasToken":true`) {
-		t.Fatalf("expected hasToken:true, got %s", body)
-	}
-}
-
-func TestBackupConfigRejectsNonGitHub(t *testing.T) {
-	srv := newSrv(t)
-	rec := do(t, srv, http.MethodPut, "/api/backup/config",
-		`{"repoURL":"https://evil.example.com/me/repo","token":"t"}`)
-	if rec.Code != 400 {
-		t.Fatalf("expected 400 for non-github url, got %d", rec.Code)
+	if !strings.Contains(body, `"hasSecret":true`) {
+		t.Fatalf("expected hasSecret:true, got %s", body)
 	}
 }
 
-func TestBackupConfigRejectsBadBranch(t *testing.T) {
+func TestBackupConfigRejectsEmptyCore(t *testing.T) {
 	srv := newSrv(t)
-	rec := do(t, srv, http.MethodPut, "/api/backup/config",
-		`{"repoURL":"https://github.com/me/bk","branch":"../../evil","token":"t"}`)
+	rec := do(t, srv, http.MethodPut, "/api/backup/config", `{"endpoint":"","bucket":"b","accessKey":"a","secretKey":"s"}`)
 	if rec.Code != 400 {
-		t.Fatalf("expected 400 for bad branch, got %d body %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 400 for empty endpoint, got %d", rec.Code)
+	}
+}
+
+func TestBackupConfigKeepsSecretWhenBlank(t *testing.T) {
+	srv := newSrv(t)
+	do(t, srv, http.MethodPut, "/api/backup/config",
+		`{"endpoint":"e","bucket":"b","accessKey":"a","secretKey":"first-secret"}`)
+	// 第二次提交不带 secret，应保留原值
+	do(t, srv, http.MethodPut, "/api/backup/config",
+		`{"endpoint":"e","bucket":"b","accessKey":"a","secretKey":""}`)
+	cfg := backup.Load()
+	if cfg.SecretKey != "first-secret" {
+		t.Fatalf("secret 应保留原值，got %q", cfg.SecretKey)
 	}
 }
 
@@ -50,42 +53,72 @@ func TestBackupPushUnconfigured(t *testing.T) {
 	srv := newSrv(t)
 	rec := do(t, srv, http.MethodPost, "/api/backup/push", "")
 	if rec.Code != 400 {
-		t.Fatalf("expected 400 when unconfigured, got %d body %s", rec.Code, rec.Body.String())
+		t.Fatalf("expected 400 when unconfigured, got %d", rec.Code)
 	}
 }
 
 func TestBackupPushWithInjectedService(t *testing.T) {
 	srv := newSrv(t)
-	// 配置（HOME 临时，写入真实 backup.json）
-	if err := backup.Save(backup.Config{RepoURL: "https://github.com/me/bk", Token: "tok"}); err != nil {
+	if err := backup.Save(backup.Config{Endpoint: "e", Bucket: "b", AccessKey: "a", SecretKey: "s"}); err != nil {
 		t.Fatal(err)
 	}
-	// 注入假 git 执行器 + 临时源目录
 	src := t.TempDir()
-	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("x"), 0o644)
 	srv.backupSvc = &backup.Service{
-		WorkDir: filepath.Join(t.TempDir(), "wk"),
-		Run: func(_ context.Context, _ string, _ []string, args ...string) (string, error) {
-			if len(args) > 0 && args[0] == "status" {
-				return " M claude/SKILL.md\n", nil
-			}
-			// authArgs 会把 -c ... 放前面；status 判断用 args[0]，此处其余返回空
-			for _, a := range args {
-				if a == "status" {
-					return " M x\n", nil
-				}
-			}
-			return "", nil
-		},
-		Srcs: []backup.SrcDir{{Sub: "claude", Path: src}},
+		Srcs:     []backup.SrcDir{{Sub: "claude", Path: src}},
+		NewStore: func(backup.Config) (backup.ArchiveStore, error) { return newMemStore(), nil },
 	}
 	rec := do(t, srv, http.MethodPost, "/api/backup/push", "")
 	if rec.Code != 200 {
 		t.Fatalf("push code=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"changed":true`) {
-		t.Fatalf("expected changed:true, got %s", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), `"fileCount":1`) {
+		t.Fatalf("expected fileCount:1, got %s", rec.Body.String())
 	}
 }
+
+func TestBackupRestoreRejectsEmptyName(t *testing.T) {
+	srv := newSrv(t)
+	if err := backup.Save(backup.Config{Endpoint: "e", Bucket: "b", AccessKey: "a", SecretKey: "s"}); err != nil {
+		t.Fatal(err)
+	}
+	rec := do(t, srv, http.MethodPost, "/api/backup/restore", `{"name":"  "}`)
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 for blank name, got %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestBackupListUnconfigured(t *testing.T) {
+	srv := newSrv(t)
+	rec := do(t, srv, http.MethodGet, "/api/backup/list", "")
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 when unconfigured, got %d", rec.Code)
+	}
+}
+
+func TestBackupTestUnconfigured(t *testing.T) {
+	srv := newSrv(t)
+	rec := do(t, srv, http.MethodPost, "/api/backup/test", "")
+	if rec.Code != 400 {
+		t.Fatalf("expected 400 when unconfigured, got %d", rec.Code)
+	}
+}
+
+// memStore 是路由测试用的内存 ArchiveStore。
+type memStore struct{ objs map[string][]byte }
+
+func newMemStore() *memStore { return &memStore{objs: map[string][]byte{}} }
+func (m *memStore) Put(_ context.Context, key string, data []byte, _ map[string]string) error {
+	m.objs[key] = data
+	return nil
+}
+func (m *memStore) List(_ context.Context) ([]backup.ArchiveInfo, error) {
+	out := []backup.ArchiveInfo{}
+	for k, d := range m.objs {
+		out = append(out, backup.ArchiveInfo{Name: filepath.Base(k), Key: k, Size: int64(len(d))})
+	}
+	return out, nil
+}
+func (m *memStore) Get(_ context.Context, key string) ([]byte, error) { return m.objs[key], nil }
+func (m *memStore) Delete(_ context.Context, key string) error        { delete(m.objs, key); return nil }
+func (m *memStore) Test(_ context.Context) error                      { return nil }

@@ -9,7 +9,6 @@ const I18N = {
     "留空则不修改；私有仓库需 repo 读取权限的 GitHub token": "Leave blank to keep; private repos need a GitHub token with repo read scope",
     "克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。": "Clones that skill directory from the public repo into ~/.claude/skills and fills in the source link. Only github.com is supported.",
     "保存在本机 ~/.skillbook/optimizer.md": "Stored locally in ~/.skillbook/optimizer.md",
-    "备份范围：自动发现的各平台用户级 skills 目录。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。": "Backup scope: auto-discovered per-platform user-level skills directories (~/.<tool>/skills). Token is written only to ~/.skillbook/backup.json (0600) — not echoed, uploaded, or included in backups. Requires a token with repo write scope.",
     // 来源自动检测 / 更新
     "自动检测来源更新": "Auto-check source updates",
     "关闭": "Off",
@@ -45,7 +44,6 @@ const I18N = {
     "名称": "Name",
     "GitHub 链接": "GitHub link",
     "本地名称": "Local name",
-    "备份仓库": "Backup repo",
     "分支": "Branch",
     // 顶栏 / 通用按钮
     "收起 / 展开左侧目录": "Collapse / expand sidebar",
@@ -139,6 +137,26 @@ const I18N = {
     "保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。": "Stored locally in ~/.skillbook/classifier.md; empty restores default. {vocab} is replaced with existing tags.",
     "已保存分类规则": "Tagging rules saved",
     "备份与同步": "Backup & Sync",
+    "历史备份": "Backup history",
+    "S3 配置": "S3 settings",
+    "如 s3.amazonaws.com / R2 / MinIO 地址": "e.g. s3.amazonaws.com / R2 / MinIO endpoint",
+    "路径前缀": "Key prefix",
+    "保留个数": "Keep count",
+    "使用 HTTPS": "Use HTTPS",
+    "测试连接": "Test connection",
+    "上次备份：{t} · 共 {n} 份": "Last backup: {t} · {n} total",
+    "尚未配置备份（在下方 S3 配置中填写）": "Backup not configured (fill in S3 settings below)",
+    "配置后可在此查看历史备份": "Backups appear here once configured",
+    "还没有备份，点击「立即备份」": "No backups yet — click \"Backup now\"",
+    "获取备份列表失败": "Failed to load backup list",
+    "{n} 个文件": "{n} files",
+    "恢复": "Restore",
+    "测试中…": "Testing…",
+    "连接成功 ✓": "Connected ✓",
+    "连接失败": "Connection failed",
+    "请填写 Endpoint、Bucket、Access Key": "Please fill in Endpoint, Bucket, Access Key",
+    "将用该备份覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local per-platform skills directories with this backup; existing directories are moved to Trash first (recoverable). Continue?",
+    "备份范围：自动发现的各平台用户级 skills 目录。Secret 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。": "Backup scope: auto-discovered per-platform user-level skills directories (~/.<tool>/skills). The secret is written only to ~/.skillbook/backup.json (0600) — never echoed, uploaded, or included in backups.",
     // 新建模态
     "新建 skill ": "New skill ",
     "从 GitHub 导入": "Import from GitHub",
@@ -185,7 +203,6 @@ const I18N = {
     "保存规则": "Save rules",
     // 备份
     "未配置": "Not configured",
-    "备份仓库 ": "Backup repo ",
     "私有仓库，需先在 GitHub 建好": "private repo, create it on GitHub first",
     "分支 ": "Branch ",
     "默认 main": "default main",
@@ -193,7 +210,6 @@ const I18N = {
     "留空则不修改已存的 token": "leave empty to keep saved token",
     "备份范围：": "Backup scope: ",
     " 与 ": " and ",
-    "。Token 仅写入本机 ": ". Token is written only on this machine at ",
     "（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 ": " (0600); never echoed, uploaded, or included in backups. Requires write access via the ",
     " scope。": " scope.",
     "保存配置": "Save config",
@@ -297,14 +313,12 @@ const I18N = {
     "载入备份配置失败": "Failed to load backup config",
     "已保存（留空不改）": "saved (leave empty to keep)",
     "必填": "required",
-    "请填写备份仓库地址": "Please enter the backup repo URL",
     "保存中…": "Saving…",
     "已保存备份配置": "Backup config saved",
     "备份中…": "Backing up…",
     "备份完成 ✓": "Backup complete ✓",
     "没有变更": "No changes",
     "备份失败": "Backup failed",
-    "将用备份仓库的内容覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？": "This overwrites local per-platform skills directories with the backup repo; existing directories are moved to Trash first (recoverable). Continue?",
     "恢复中…": "Restoring…",
     "已恢复": "Restored",
     "恢复失败": "Restore failed",
@@ -416,9 +430,12 @@ const el = {
   sheetTags: $("#sheetTags"), editTags: $("#editTags"),
   clsBar: $("#clsBar"), clsBarFill: $("#clsBarFill"), clsBarText: $("#clsBarText"),
   editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
-  backupModal: $("#backupModal"), backupStatus: $("#backupStatus"), bkRepo: $("#bkRepo"), bkBranch: $("#bkBranch"),
-  bkToken: $("#bkToken"), bkTokenHint: $("#bkTokenHint"), bkStatus: $("#bkStatus"),
-  bkSave: $("#bkSave"), bkPush: $("#bkPush"), bkRestore: $("#bkRestore"),
+  backupModal: $("#backupModal"), backupStatus: $("#backupStatus"),
+  bkList: $("#bkList"), bkEndpoint: $("#bkEndpoint"), bkRegion: $("#bkRegion"),
+  bkBucket: $("#bkBucket"), bkPrefix: $("#bkPrefix"), bkKeep: $("#bkKeep"),
+  bkAccessKey: $("#bkAccessKey"), bkSecretKey: $("#bkSecretKey"), bkSecretHint: $("#bkSecretHint"),
+  bkUseSSL: $("#bkUseSSL"), bkTest: $("#bkTest"), bkSave: $("#bkSave"),
+  bkStatus: $("#bkStatus"), bkPush: $("#bkPush"),
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
@@ -606,9 +623,11 @@ const API = {
   putClassifier: (content) => fetch("/api/classifier", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) }),
   backupConfig: () => fetch("/api/backup/config").then(J),
   backupStatus: () => fetch("/api/backup/status").then(J),
+  backupList: () => fetch("/api/backup/list").then(J),
   putBackupConfig: (c) => fetch("/api/backup/config", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) }),
+  backupTest: () => fetch("/api/backup/test", { method: "POST" }),
   backupPush: () => fetch("/api/backup/push", { method: "POST" }),
-  backupRestore: () => fetch("/api/backup/restore", { method: "POST" })
+  backupRestore: (name) => fetch("/api/backup/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) })
 };
 
 /* ---------- data load ---------- */
@@ -1653,7 +1672,7 @@ async function saveClassifier() {
   catch {toast(t("保存失败"), "err");}
 }
 
-/* ---------- GitHub 备份与恢复 ---------- */
+/* ---------- S3 备份与恢复 ---------- */
 function fmtTime(unix) {
   if (!unix) return t("尚未备份");
   try {
@@ -1664,48 +1683,108 @@ function fmtTime(unix) {
 }
 async function openBackup() {
   openModal(el.backupModal);
-  el.bkStatus.textContent = "";el.bkToken.value = "";
+  el.bkStatus.textContent = ""; el.bkSecretKey.value = "";
   try {
     const [cfg, st] = await Promise.all([API.backupConfig(), API.backupStatus()]);
-    el.bkRepo.value = cfg.repoURL || "";
-    el.bkBranch.value = cfg.branch || "main";
-    el.bkTokenHint.textContent = cfg.hasToken ? t("已保存（留空不改）") : t("必填");
+    el.bkEndpoint.value = cfg.endpoint || "";
+    el.bkRegion.value = cfg.region || "";
+    el.bkBucket.value = cfg.bucket || "";
+    el.bkPrefix.value = cfg.prefix || "skillbook/";
+    el.bkKeep.value = cfg.keepCount || 20;
+    el.bkAccessKey.value = cfg.accessKey || "";
+    el.bkUseSSL.checked = cfg.useSSL !== false;
+    el.bkSecretHint.textContent = cfg.hasSecret ? t("已保存（留空不改）") : t("必填");
     el.backupStatus.textContent = st.configured ?
-    t("上次备份：{t} · 仓库 {repo}", { t: fmtTime(st.lastBackup), repo: cfg.repoURL || "—" }) : t("尚未配置备份（在下方填写仓库与 Token）");
-
-  } catch {el.backupStatus.textContent = t("载入备份配置失败");}
+      t("上次备份：{t} · 共 {n} 份", { t: st.lastBackup ? fmtTime(st.lastBackup) : "—", n: st.count || 0 }) :
+      t("尚未配置备份（在下方 S3 配置中填写）");
+    await loadBackupList(st.configured);
+  } catch { el.backupStatus.textContent = t("载入备份配置失败"); }
 }
+
+async function loadBackupList(configured) {
+  if (!configured) { el.bkList.innerHTML = `<div class="bk-empty">${t("配置后可在此查看历史备份")}</div>`; return; }
+  el.bkList.innerHTML = `<div class="bk-empty">${t("加载中…")}</div>`;
+  try {
+    const d = await API.backupList();
+    const arr = (d.archives || []);
+    if (!arr.length) { el.bkList.innerHTML = `<div class="bk-empty">${t("还没有备份，点击「立即备份」")}</div>`; return; }
+    el.bkList.innerHTML = arr.map((a) => `
+      <div class="bk-item">
+        <div class="bk-item-main">
+          <span class="bk-item-time">${a.time ? fmtTime(a.time) : esc(a.name)}</span>
+          <span class="bk-item-meta">${fmtSize(a.size)}${a.fileCount >= 0 ? " · " + t("{n} 个文件", { n: a.fileCount }) : ""}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm bk-restore" data-name="${esc(a.name)}">${t("恢复")}</button>
+      </div>`).join("");
+    el.bkList.querySelectorAll(".bk-restore").forEach((b) =>
+      b.addEventListener("click", () => doBackupRestore(b.dataset.name, b)));
+  } catch { el.bkList.innerHTML = `<div class="bk-empty">${t("获取备份列表失败")}</div>`; }
+}
+
+function fmtSize(n) {
+  if (!n && n !== 0) return "—";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
+function collectBackupCfg() {
+  return {
+    endpoint: el.bkEndpoint.value.trim(),
+    region: el.bkRegion.value.trim(),
+    bucket: el.bkBucket.value.trim(),
+    prefix: el.bkPrefix.value.trim(),
+    accessKey: el.bkAccessKey.value.trim(),
+    secretKey: el.bkSecretKey.value,
+    useSSL: el.bkUseSSL.checked,
+    keepCount: parseInt(el.bkKeep.value, 10) || 20,
+  };
+}
+
 async function saveBackupConfig() {
-  const repoURL = el.bkRepo.value.trim();
-  if (!repoURL) {toast(t("请填写备份仓库地址"), "err");return;}
+  const cfg = collectBackupCfg();
+  if (!cfg.endpoint || !cfg.bucket || !cfg.accessKey) { toast(t("请填写 Endpoint、Bucket、Access Key"), "err"); return; }
   el.bkStatus.textContent = t("保存中…");
   try {
-    const r = await API.putBackupConfig({ repoURL, branch: el.bkBranch.value.trim(), token: el.bkToken.value });
+    const r = await API.putBackupConfig(cfg);
     const d = await r.json().catch(() => ({}));
-    if (r.ok) {el.bkStatus.textContent = "";el.bkToken.value = "";toast(t("已保存备份配置"));await openBackup();} else
-    {el.bkStatus.textContent = "";toast(d.error || t("保存失败"), "err");}
-  } catch {el.bkStatus.textContent = "";toast(t("保存失败"), "err");}
+    if (r.ok) { el.bkStatus.textContent = ""; el.bkSecretKey.value = ""; toast(t("已保存备份配置")); await openBackup(); }
+    else { el.bkStatus.textContent = ""; toast(d.error || t("保存失败"), "err"); }
+  } catch { el.bkStatus.textContent = ""; toast(t("保存失败"), "err"); }
 }
+
+async function testBackupConn() {
+  el.bkTest.classList.add("loading"); el.bkTest.disabled = true; el.bkStatus.textContent = t("测试中…");
+  try {
+    const r = await API.backupTest();
+    const d = await r.json().catch(() => ({}));
+    toast(r.ok ? t("连接成功 ✓") : (d.error || t("连接失败")), r.ok ? "ok" : "err");
+  } catch { toast(t("连接失败"), "err"); }
+  finally { el.bkTest.classList.remove("loading"); el.bkTest.disabled = false; el.bkStatus.textContent = ""; }
+}
+
 async function doBackupPush() {
-  el.bkPush.classList.add("loading");el.bkPush.disabled = true;el.bkStatus.textContent = t("备份中…");
+  el.bkPush.classList.add("loading"); el.bkPush.disabled = true; el.bkStatus.textContent = t("备份中…");
   try {
     const r = await API.backupPush();
     const d = await r.json().catch(() => ({}));
-    if (r.ok) {toast(d.changed ? t("备份完成 ✓") : d.message || t("没有变更"));await openBackup();} else
-    {toast(d.error || t("备份失败"), "err");}
-  } catch {toast(t("备份失败"), "err");} finally
-  {el.bkPush.classList.remove("loading");el.bkPush.disabled = false;el.bkStatus.textContent = "";}
+    if (r.ok) { toast(t("备份完成 ✓")); await openBackup(); }
+    else { toast(d.error || t("备份失败"), "err"); }
+  } catch { toast(t("备份失败"), "err"); }
+  finally { el.bkPush.classList.remove("loading"); el.bkPush.disabled = false; el.bkStatus.textContent = ""; }
 }
-async function doBackupRestore() {
-  if (!confirm(t("将用备份仓库的内容覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？"))) return;
-  el.bkRestore.classList.add("loading");el.bkRestore.disabled = true;el.bkStatus.textContent = t("恢复中…");
+
+async function doBackupRestore(name, btn) {
+  if (!confirm(t("将用该备份覆盖本地各平台 skills 目录；被覆盖的现有目录会先移到废纸篓（可恢复）。确定继续？"))) return;
+  if (btn) { btn.classList.add("loading"); btn.disabled = true; }
+  el.bkStatus.textContent = t("恢复中…");
   try {
-    const r = await API.backupRestore();
+    const r = await API.backupRestore(name);
     const d = await r.json().catch(() => ({}));
-    if (r.ok) {toast(d.message || t("已恢复"));closeModal();doScan();} else
-    {toast(d.error || t("恢复失败"), "err");}
-  } catch {toast(t("恢复失败"), "err");} finally
-  {el.bkRestore.classList.remove("loading");el.bkRestore.disabled = false;el.bkStatus.textContent = "";}
+    if (r.ok) { toast(d.message || t("已恢复")); closeModal(); doScan(); }
+    else { toast(d.error || t("恢复失败"), "err"); }
+  } catch { toast(t("恢复失败"), "err"); }
+  finally { el.bkStatus.textContent = ""; if (btn) { btn.classList.remove("loading"); btn.disabled = false; } }
 }
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"),b = (newT || "").split("\n");
@@ -2163,8 +2242,8 @@ if (el.scanDirsModal) el.scanDirsModal.addEventListener("click", (e) => {
 });
 el.openBackup.addEventListener("click", openBackup);
 el.bkSave.addEventListener("click", saveBackupConfig);
+el.bkTest.addEventListener("click", testBackupConn);
 el.bkPush.addEventListener("click", doBackupPush);
-el.bkRestore.addEventListener("click", doBackupRestore);
 
 el.settings.addEventListener("click", async () => {openModal(el.settingsModal);await fillSettings();});
 el.cfgSave.addEventListener("click", saveSettings);
