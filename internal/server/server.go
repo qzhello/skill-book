@@ -96,10 +96,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/import", s.handleImport)
 	mux.HandleFunc("POST /api/skills/{id}/source/check", s.handleSourceCheck)
 	mux.HandleFunc("POST /api/skills/{id}/source/apply", s.handleSourceApply)
-	// GitHub 备份 / 恢复
+	// S3 备份 / 恢复
 	mux.HandleFunc("GET /api/backup/config", s.handleGetBackupConfig)
 	mux.HandleFunc("PUT /api/backup/config", s.handlePutBackupConfig)
+	mux.HandleFunc("POST /api/backup/test", s.handleBackupTest)
 	mux.HandleFunc("GET /api/backup/status", s.handleBackupStatus)
+	mux.HandleFunc("GET /api/backup/list", s.handleBackupList)
 	mux.HandleFunc("POST /api/backup/push", s.handleBackupPush)
 	mux.HandleFunc("POST /api/backup/restore", s.handleBackupRestore)
 
