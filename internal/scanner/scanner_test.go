@@ -105,3 +105,27 @@ func TestDefaultRoots_DiscoversUserAndProject(t *testing.T) {
 		t.Fatalf("want user .cursor + project .claude discovered, got %+v", roots)
 	}
 }
+
+func TestDiscoverPlatformIDsExcludesTrashAndSkillbook(t *testing.T) {
+	base := t.TempDir()
+	for _, d := range []string{".claude", ".Trash", ".skillbook"} {
+		if err := os.MkdirAll(filepath.Join(base, d, "skills"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ids := DiscoverPlatformIDs(base)
+	for _, id := range ids {
+		if id == "Trash" || id == "skillbook" {
+			t.Fatalf("should not discover %q as a platform; got %v", id, ids)
+		}
+	}
+	found := false
+	for _, id := range ids {
+		if id == "claude" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected claude in %v", ids)
+	}
+}

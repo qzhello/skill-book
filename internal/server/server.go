@@ -77,6 +77,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/file/rename", s.handleRenameEntry)
 	mux.HandleFunc("POST /api/file/delete", s.handleDeleteEntry)
 	mux.HandleFunc("POST /api/skills/trash", s.handleTrash)
+	mux.HandleFunc("GET /api/trash", s.handleListTrash)
+	mux.HandleFunc("POST /api/trash/restore", s.handleRestoreTrash)
+	mux.HandleFunc("POST /api/trash/empty", s.handleEmptyTrash)
 	mux.HandleFunc("POST /api/skills/sync", s.handleSync)
 	mux.HandleFunc("GET /api/groups", s.handleGroups)
 	// 来源链接

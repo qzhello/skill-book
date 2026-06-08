@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"skillbook/internal/editor"
@@ -230,11 +231,14 @@ func (s *Server) handleTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 收集已知 skill 目录集合，用于精确匹配。
+	// 收集已知 skill 目录集合（映射到平台），用于精确匹配与回收站清单展示。
 	known := map[string]bool{}
+	platformByDir := map[string]string{}
 	if skills, err := s.st.List(); err == nil {
 		for _, sk := range skills {
-			known[filepath.Clean(sk.Dir)] = true
+			cd := filepath.Clean(sk.Dir)
+			known[cd] = true
+			platformByDir[cd] = string(sk.Platform)
 		}
 	}
 
@@ -251,7 +255,7 @@ func (s *Server) handleTrash(w http.ResponseWriter, r *http.Request) {
 			failed = append(failed, failure{Dir: raw, Error: "目录不是已知 skill"})
 			continue
 		}
-		if _, err := trash.ToTrash(dir); err != nil {
+		if err := moveToRecycle(dir, platformByDir[dir], time.Now()); err != nil {
 			failed = append(failed, failure{Dir: raw, Error: err.Error()})
 			continue
 		}
