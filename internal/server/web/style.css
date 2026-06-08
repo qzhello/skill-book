@@ -681,3 +681,20 @@ body{
   *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .row.enter{opacity:1;transform:none}.sheet,.modal{transition:none}
 }
+
+/* —— S3 备份列表 —— */
+.bk-list-wrap{margin:4px 0 12px}
+.bk-list-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:600}
+.bk-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+.bk-item{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.bk-item-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bk-item-time{font-weight:500}
+.bk-item-meta{font-size:12px;color:var(--muted)}
+.bk-empty{padding:18px;text-align:center;color:var(--muted);font-size:13px}
+.bk-settings{margin-top:8px;border-top:1px solid var(--line);padding-top:10px}
+.bk-settings>summary{cursor:pointer;font-weight:600;padding:4px 0}
+.bk-row{display:flex;gap:12px}
+.bk-row .field{flex:1;min-width:0}
+.bk-check{display:flex;align-items:center;gap:6px;margin:8px 0}
+.bk-settings-foot{display:flex;align-items:center;gap:8px;margin-top:10px}

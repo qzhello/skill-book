@@ -371,20 +371,38 @@
   <div class="modal-head"><h3 data-i18n="备份与同步">备份与同步</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="modal-body">
     <div class="backup-status" id="backupStatus" data-i18n="未配置">未配置</div>
-    <label class="field"><span><span data-i18n="备份仓库">备份仓库</span> <i data-i18n="私有仓库，需先在 GitHub 建好">私有仓库，需先在 GitHub 建好</i></span>
-      <input id="bkRepo" placeholder="https://github.com/you/skill-backup" /></label>
-    <label class="field"><span><span data-i18n="分支">分支</span> <i data-i18n="默认 main">默认 main</i></span>
-      <input id="bkBranch" placeholder="main" /></label>
-    <label class="field"><span>GitHub Token <i id="bkTokenHint"></i></span>
-      <input id="bkToken" type="password" placeholder="留空则不修改已存的 token" data-i18n-ph="留空则不修改已存的 token" /></label>
-    <div class="modal-note" data-i18n="备份范围：自动发现的各平台用户级 skills 目录。Token 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 repo scope。">备份范围：自动发现的各平台用户级 skills 目录（<code>~/.&lt;工具&gt;/skills</code>）。Token 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。需要对该仓库有写权限的 <code>repo</code> scope。</div>
-  </div>
-  <div class="modal-foot">
-    <button id="bkSave" class="btn btn-ghost" data-i18n="保存配置">保存配置</button>
-    <button id="bkRestore" class="btn btn-danger" data-i18n="从备份恢复">从备份恢复</button>
-    <span id="bkStatus" class="cfg-status"></span>
-    <div class="toolbar-spacer"></div>
-    <button id="bkPush" class="btn btn-primary" data-i18n="立即备份">立即备份</button>
+
+    <div class="bk-list-wrap">
+      <div class="bk-list-head">
+        <span data-i18n="历史备份">历史备份</span>
+        <button id="bkPush" class="btn btn-primary btn-sm" data-i18n="立即备份">立即备份</button>
+      </div>
+      <div id="bkList" class="bk-list"></div>
+    </div>
+
+    <details class="bk-settings">
+      <summary data-i18n="S3 配置">S3 配置</summary>
+      <label class="field"><span>Endpoint <i data-i18n="如 s3.amazonaws.com / R2 / MinIO 地址">如 s3.amazonaws.com / R2 / MinIO 地址</i></span>
+        <input id="bkEndpoint" placeholder="s3.amazonaws.com" /></label>
+      <div class="bk-row">
+        <label class="field"><span>Region</span><input id="bkRegion" placeholder="us-east-1" /></label>
+        <label class="field"><span>Bucket</span><input id="bkBucket" placeholder="my-skill-backup" /></label>
+      </div>
+      <div class="bk-row">
+        <label class="field"><span data-i18n="路径前缀">路径前缀</span><input id="bkPrefix" placeholder="skillbook/" /></label>
+        <label class="field"><span data-i18n="保留个数">保留个数</span><input id="bkKeep" type="number" min="1" placeholder="20" /></label>
+      </div>
+      <label class="field"><span>Access Key</span><input id="bkAccessKey" placeholder="AKIA..." /></label>
+      <label class="field"><span>Secret Key <i id="bkSecretHint"></i></span>
+        <input id="bkSecretKey" type="password" placeholder="留空则不修改已存的 Secret" data-i18n-ph="留空则不修改已存的 Secret" /></label>
+      <label class="bk-check"><input id="bkUseSSL" type="checkbox" /> <span data-i18n="使用 HTTPS">使用 HTTPS</span></label>
+      <div class="modal-note" data-i18n="备份范围：自动发现的各平台用户级 skills 目录。Secret 仅写入本机 ~/.skillbook/backup.json（0600），不回显、不上传、不入备份内容。">备份范围：自动发现的各平台用户级 skills 目录（<code>~/.&lt;工具&gt;/skills</code>）。Secret 仅写入本机 <code>~/.skillbook/backup.json</code>（0600），不回显、不上传、不入备份内容。</div>
+      <div class="bk-settings-foot">
+        <button id="bkTest" class="btn btn-ghost" data-i18n="测试连接">测试连接</button>
+        <button id="bkSave" class="btn btn-ghost" data-i18n="保存配置">保存配置</button>
+        <span id="bkStatus" class="cfg-status"></span>
+      </div>
+    </details>
   </div>
 </div>
 
