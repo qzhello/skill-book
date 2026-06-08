@@ -109,3 +109,23 @@ func TestLinkedSourceIDs(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestSourceTokenRoundTrip(t *testing.T) {
+	st, err := Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	in := Source{SkillID: "s1", SourceKind: "github_repo", SourceURL: "https://github.com/o/r",
+		Token: "ghp_secret", SyncPolicy: "none", Targets: "claude"}
+	if err := st.PutSource(in); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := st.GetSource("s1")
+	if err != nil || !found {
+		t.Fatalf("GetSource found=%v err=%v", found, err)
+	}
+	if got.Token != "ghp_secret" {
+		t.Fatalf("token round-trip: got %q", got.Token)
+	}
+}

@@ -4,9 +4,7 @@ const I18N = {
   en: {
     // 模态提示（整段，路径以纯文本内联）
     "key 仅保存在本机 ~/.skillbook/config.json，不会上传、不回显。": "Key is stored locally in ~/.skillbook/config.json — never uploaded or echoed back.",
-    "key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。": "Key and token are stored locally in ~/.skillbook/ (0600) — never uploaded or echoed back.",
-    "来源访问令牌（私有仓库）": "Source access token (private repos)",
-    "留空则不修改；私有仓库需 repo 读取权限的 GitHub token": "Leave blank to keep; private repos need a GitHub token with repo read scope",
+    "key 仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。": "Key is stored locally in ~/.skillbook/ (0600) — never uploaded or echoed back.",
     "克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。": "Clones that skill directory from the public repo into ~/.claude/skills and fills in the source link. Only github.com is supported.",
     "保存在本机 ~/.skillbook/optimizer.md": "Stored locally in ~/.skillbook/optimizer.md",
     // 来源自动检测 / 更新
@@ -19,8 +17,7 @@ const I18N = {
     "自动检测更新": "Auto-check for updates",
     "仓库内子路径（SKILL.md 所在目录，如 cr；根目录留空）": "Subpath in repo (dir containing SKILL.md, e.g. cr; blank for root)",
     "私有仓库访问令牌": "Private repo access token",
-    "ghp_…（对所有私有来源通用，留空不修改）": "ghp_… (shared by all private sources, blank keeps current)",
-    "访问令牌已保存": "Access token saved",
+    "私有仓库填；留空不修改": "For private repos; blank keeps current",
     "更新目标": "Update target",
     "检测到上游有更新，点「检查更新」查看并应用。": "Upstream has updates — click “Check for updates” to review and apply.",
     "有可用更新": "Update available",
@@ -137,6 +134,15 @@ const I18N = {
     "保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。": "Stored locally in ~/.skillbook/classifier.md; empty restores default. {vocab} is replaced with existing tags.",
     "已保存分类规则": "Tagging rules saved",
     "备份与同步": "Backup & Sync",
+    "垃圾桶": "Trash",
+    "查看与恢复已删除的 Skill": "View and restore deleted skills",
+    "已删除的 Skill": "Deleted skills",
+    "清空回收站": "Empty trash",
+    "回收站是空的": "Trash is empty",
+    "读取回收站失败": "Failed to load trash",
+    "清空回收站？内容会被移到系统废纸篓（仍可在访达恢复）。": "Empty trash? Items will be moved to the system Trash (still recoverable in Finder).",
+    "已清空回收站": "Trash emptied",
+    "清空失败": "Empty failed",
     "历史备份": "Backup history",
     "S3 配置": "S3 settings",
     "如 s3.amazonaws.com / R2 / MinIO 地址": "e.g. s3.amazonaws.com / R2 / MinIO endpoint",
@@ -246,6 +252,20 @@ const I18N = {
     "{n} skills": "{n} skills",
     "没有匹配的 skill": "No matching skills",
     "（空目录）": "(empty directory)",
+    "新建文件": "New file",
+    "新建文件夹": "New folder",
+    "文件": "File",
+    "文件夹": "Folder",
+    "新建文件名称": "New file name",
+    "新建文件夹名称": "New folder name",
+    "重命名": "Rename",
+    "重命名为": "Rename to",
+    "删除": "Delete",
+    "已创建": "Created",
+    "已重命名": "Renamed",
+    "重命名失败": "Rename failed",
+    "已移到废纸篓": "Moved to Trash",
+    "将「{n}」移到废纸篓（可在访达恢复）。确定？": "Move “{n}” to Trash (recoverable in Finder)? Confirm?",
     "当前文件有未保存修改，切换将丢失。确定切换？": "The current file has unsaved changes that will be lost. Switch anyway?",
     "读取文件失败": "Failed to read file",
     "读取失败：{e}": "Read failed: {e}",
@@ -433,6 +453,7 @@ const el = {
   sheetTags: $("#sheetTags"), editTags: $("#editTags"),
   clsBar: $("#clsBar"), clsBarFill: $("#clsBarFill"), clsBarText: $("#clsBarText"),
   editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
+  openTrash: $("#openTrash"), trashModal: $("#trashModal"), trashList: $("#trashList"), trashEmpty: $("#trashEmpty"),
   backupModal: $("#backupModal"), backupStatus: $("#backupStatus"),
   bkList: $("#bkList"), bkEndpoint: $("#bkEndpoint"), bkRegion: $("#bkRegion"),
   bkBucket: $("#bkBucket"), bkPrefix: $("#bkPrefix"), bkKeep: $("#bkKeep"),
@@ -457,7 +478,6 @@ const el = {
   modalScrim: $("#modalScrim"),
   settingsModal: $("#settingsModal"), cfgProvider: $("#cfgProvider"), cfgBaseURL: $("#cfgBaseURL"),
   cfgModel: $("#cfgModel"), cfgKey: $("#cfgKey"), keyHint: $("#keyHint"), cfgSyncInterval: $("#cfgSyncInterval"),
-  cfgSrcToken: $("#cfgSrcToken"), srcTokenHint: $("#srcTokenHint"),
   cfgTest: $("#cfgTest"), cfgStatus: $("#cfgStatus"), cfgSave: $("#cfgSave"),
   newModal: $("#newModal"), newName: $("#newName"), newRecipe: $("#newRecipe"),
   newBrief: $("#newBrief"), newAiHint: $("#newAiHint"), newStatus: $("#newStatus"), newCreate: $("#newCreate"),
@@ -601,7 +621,14 @@ const API = {
   files: (id) => fetch("/api/skills/" + id + "/files").then(J),
   readFile: (path) => fetch("/api/file?path=" + encodeURIComponent(path)).then(J),
   putFile: (path, content) => fetch("/api/file", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) }),
+  newFile: (dir, name) => fetch("/api/file/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir, name }) }),
+  newDir: (dir, name) => fetch("/api/dir/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir, name }) }),
+  renameEntry: (path, newName) => fetch("/api/file/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, newName }) }),
+  deleteEntry: (path) => fetch("/api/file/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
   trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
+  trashItems: () => fetch("/api/trash").then(J),
+  trashRestore: (id) => fetch("/api/trash/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }),
+  trashEmptyAll: () => fetch("/api/trash/empty", { method: "POST" }),
   groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
   sync: (fromId, toIds) => fetch("/api/skills/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fromId, toIds }) }),
   getSource: (id) => fetch("/api/skills/" + id + "/source").then(J),
@@ -614,8 +641,6 @@ const API = {
   browse: (path) => fetch("/api/browse" + (path ? "?path=" + encodeURIComponent(path) : "")).then(J),
   getScanDirs: () => fetch("/api/scan-dirs").then(J),
   putScanDirs: (body) => fetch("/api/scan-dirs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-  getSourceAuth: () => fetch("/api/source-auth").then(J),
-  putSourceAuth: (body) => fetch("/api/source-auth", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   classify: (force) => fetch("/api/tags/classify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) }),
   classifyStatus: () => fetch("/api/tags/classify/status").then(J),
   setTags: (id, tags) => fetch("/api/skills/" + id + "/tags", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags }) }),
@@ -696,7 +721,10 @@ function applyFileTreeCollapsed() {
 }
 // file-tree 顶部表头（含收起/展开按钮），随 renderTree 重渲染
 function fileTreeHeadHtml() {
-  return `<div class="ft-head"><button class="ft-collapse" title="${t("收起 / 展开文件目录")}" aria-label="${t("收起 / 展开文件目录")}">` +
+  return `<div class="ft-head">` +
+    `<button class="ft-act" id="ftNewFile" title="${t("新建文件")}">＋${t("文件")}</button>` +
+    `<button class="ft-act" id="ftNewDir" title="${t("新建文件夹")}">＋${t("文件夹")}</button>` +
+    `<button class="ft-collapse" title="${t("收起 / 展开文件目录")}" aria-label="${t("收起 / 展开文件目录")}">` +
     '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>' +
     '</button></div>';
 }
@@ -1164,20 +1192,49 @@ function renderNode(node, depth) {
   for (const k of kids) {
     const pad = 8 + depth * 14;
     const hasChildren = Object.keys(k.children).length > 0;
+    const isMainSkill = !k.dir && k.name === "SKILL.md";
+    const ops = (k.abs && !isMainSkill)
+      ? `<span class="ft-ops"><button class="ft-rename" data-abs="${esc(k.abs)}" title="${t("重命名")}">✎</button><button class="ft-del" data-abs="${esc(k.abs)}" title="${t("删除")}">🗑</button></span>`
+      : "";
     if (k.dir) {
       const collapsed = state.collapsed.has(k.rel);
       const chev = hasChildren ? `<span class="ft-chevwrap${collapsed ? "" : " open"}">${CHEVRON_SVG}</span>` : '<span class="ft-chevwrap"></span>';
-      html += `<div class="ft-row dir"${hasChildren ? ` data-toggle="${esc(k.rel)}"` : ""} style="padding-left:${pad}px">${chev}${FOLDER_SVG}<span>${esc(k.name)}</span></div>`;
+      html += `<div class="ft-row dir"${hasChildren ? ` data-toggle="${esc(k.rel)}"` : ""} style="padding-left:${pad}px">${chev}${FOLDER_SVG}<span>${esc(k.name)}</span>${ops}</div>`;
       if (hasChildren && !collapsed) html += renderNode(k, depth + 1);
     } else {
       const active = k.abs === state.filePath ? " active" : "";
-      html += `<div class="ft-row file${active}" data-abs="${esc(k.abs)}" title="${esc(k.rel)}" style="padding-left:${pad + 14}px">${FILE_SVG}<span>${esc(k.name)}</span></div>`;
+      html += `<div class="ft-row file${active}" data-abs="${esc(k.abs)}" title="${esc(k.rel)}" style="padding-left:${pad + 14}px">${FILE_SVG}<span>${esc(k.name)}</span>${ops}</div>`;
     }
   }
   return html;
 }
 function renderTree() {
   el.fileTree.innerHTML = fileTreeHeadHtml() + (renderNode(buildTree(), 0) || `<div class="ft-row dir" style="padding-left:8px">${t("（空目录）")}</div>`);
+}
+async function fileOpNew(isDir) {
+  if (!state.current) return;
+  const name = prompt(isDir ? t("新建文件夹名称") : t("新建文件名称"));
+  if (!name) return;
+  const r = await (isDir ? API.newDir(state.current.dir, name) : API.newFile(state.current.dir, name));
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已创建")); await loadFiles(state.current.id); }
+  else { toast(d.error || t("创建失败"), "err"); }
+}
+async function fileOpRename(abs) {
+  const cur = abs.split("/").pop();
+  const name = prompt(t("重命名为"), cur);
+  if (!name || name === cur) return;
+  const r = await API.renameEntry(abs, name);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已重命名")); if (state.current) await loadFiles(state.current.id); }
+  else { toast(d.error || t("重命名失败"), "err"); }
+}
+async function fileOpDelete(abs) {
+  if (!confirm(t("将「{n}」移到废纸篓（可在访达恢复）。确定？", { n: abs.split("/").pop() }))) return;
+  const r = await API.deleteEntry(abs);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已移到废纸篓")); if (state.current) await loadFiles(state.current.id); }
+  else { toast(d.error || t("删除失败"), "err"); }
 }
 async function openFile(abs, mode) {
   if (state.dirty && state.filePath && state.filePath !== abs &&
@@ -1408,8 +1465,7 @@ async function openSourceModal() {
   const s = state.source || {};
   const persisted = s.source_url && !s.inferred;
   const isGithub = s.source_kind === "github_repo";
-  let hasToken = false;
-  try {hasToken = !!(await API.getSourceAuth()).hasToken;} catch {/* ignore */}
+  const hasToken = !!s.has_token;
   const kindOpts = ["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${t(KIND_LABEL[k])}</option>`).join("");
   // 更新目标：默认取已存 targets，否则用该 skill 当前所在平台
   const tset = new Set((s.targets || (state.current && state.current.platform) || "claude").split(",").map((x) => x.trim()).filter(Boolean));
@@ -1435,8 +1491,8 @@ async function openSourceModal() {
         ${targetBoxes}
       </div>
       ${isGithub ? `<div class="src-token-line">
-        <span class="src-mut">${t("私有仓库访问令牌")} <i>${hasToken ? t("（已配置，可留空）") : t("（未配置）")}</i></span>
-        <input class="src-in" id="srcTokenIn" type="password" placeholder="${t("ghp_…（对所有私有来源通用，留空不修改）")}" />
+        <span class="src-mut">${t("私有仓库访问令牌")} <i id="srcTokenHint2">${hasToken ? t("（已配置，可留空）") : t("（未配置）")}</i></span>
+        <input class="src-in" id="srcToken" type="password" placeholder="${t("私有仓库填；留空不修改")}" />
       </div>` : ""}
     </div>
     <div class="src-row" style="margin-top:14px">
@@ -1845,6 +1901,46 @@ async function doBackupRestore(name, btn) {
   } catch { toast(t("恢复失败"), "err"); }
   finally { el.bkStatus.textContent = ""; if (btn) { btn.classList.remove("loading"); btn.disabled = false; } }
 }
+
+// openTrash 打开垃圾桶弹窗并加载已删除的 skill 清单。
+async function openTrash() {
+  openModal(el.trashModal);
+  el.trashList.innerHTML = `<div class="bk-empty">${t("加载中…")}</div>`;
+  try {
+    const d = await API.trashItems();
+    const items = d.items || [];
+    if (!items.length) { el.trashList.innerHTML = `<div class="bk-empty">${t("回收站是空的")}</div>`; return; }
+    el.trashList.innerHTML = items.map((it) => `
+      <div class="bk-item">
+        <div class="bk-item-main">
+          <span class="bk-item-time">${esc(it.name)}</span>
+          <span class="bk-item-meta">${esc(it.origPath || "")}${it.deletedAt ? " · " + fmtTime(it.deletedAt) : ""}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm tr-restore" data-id="${esc(it.id)}">${t("恢复")}</button>
+      </div>`).join("");
+    el.trashList.querySelectorAll(".tr-restore").forEach((b) =>
+      b.addEventListener("click", () => doTrashRestore(b.dataset.id, b)));
+  } catch { el.trashList.innerHTML = `<div class="bk-empty">${t("读取回收站失败")}</div>`; }
+}
+
+// doTrashRestore 恢复一项已删除的 skill 到原路径。
+async function doTrashRestore(id, btn) {
+  if (btn) { btn.disabled = true; }
+  const r = await API.trashRestore(id);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已恢复")); await openTrash(); doScan(); }
+  else { toast(d.error || t("恢复失败"), "err"); if (btn) btn.disabled = false; }
+}
+
+// doTrashEmpty 清空回收站：内容移到系统废纸篓。
+async function doTrashEmpty() {
+  if (!confirm(t("清空回收站？内容会被移到系统废纸篓（仍可在访达恢复）。"))) return;
+  const r = await API.trashEmptyAll();
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已清空回收站")); await openTrash(); }
+  else { toast(d.error || t("清空失败"), "err"); }
+}
+
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"),b = (newT || "").split("\n");
   const m = a.length,n = b.length;
@@ -2001,10 +2097,6 @@ async function fillSettings() {
     el.cfgStatus.textContent = "";el.cfgStatus.className = "cfg-status";
   } catch {toast(t("读取配置失败"), "err");}
   if (el.cfgSyncInterval) {try {const sc = await API.getSyncConfig();el.cfgSyncInterval.value = String(sc.interval_min || 0);} catch {/* ignore */}}
-  if (el.cfgSrcToken) {
-    el.cfgSrcToken.value = "";
-    try {const sa = await API.getSourceAuth();el.srcTokenHint.textContent = sa.hasToken ? t("（已配置，可留空）") : t("（未配置）");} catch {el.srcTokenHint.textContent = "";}
-  }
 }
 function readSettingsForm() {
   return { provider: el.cfgProvider.value, baseURL: el.cfgBaseURL.value.trim(), model: el.cfgModel.value.trim(), apiKey: el.cfgKey.value };
@@ -2012,7 +2104,6 @@ function readSettingsForm() {
 async function saveSettings() {
   el.cfgSave.disabled = true;
   if (el.cfgSyncInterval) {try {await API.putSyncConfig({ interval_min: parseInt(el.cfgSyncInterval.value, 10) || 0 });} catch {/* ignore */}}
-  if (el.cfgSrcToken && el.cfgSrcToken.value.trim()) {try {await API.putSourceAuth({ token: el.cfgSrcToken.value.trim() });} catch {/* ignore */}}
   try {const r = await API.putConfig(readSettingsForm());if (r.ok) {toast(t("已保存设置"));await probeAI();closeModal();} else toast(t("保存失败"), "err");}
   catch {toast(t("保存失败"), "err");} finally {el.cfgSave.disabled = false;}
 }
@@ -2235,13 +2326,18 @@ el.sourceModalBody.addEventListener("click", async (e) => {
   if (act === "src-copy") {if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url);toast(t("已复制来源链接"));} else
   if (act === "src-check") {closeModal();doCheckUpdate(id);} else
   if (act === "src-save") {
-    const tokEl = $("#srcTokenIn");
-    if (tokEl && tokEl.value.trim()) {try {await API.putSourceAuth({ token: tokEl.value.trim() });toast(t("访问令牌已保存"));} catch {/* ignore */}}
-    await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_subpath: $("#srcSubpath") ? $("#srcSubpath").value.trim() : "", source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets() });
+    const tokEl = $("#srcToken");
+    await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_subpath: $("#srcSubpath") ? $("#srcSubpath").value.trim() : "", source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets(), token: tokEl ? tokEl.value : "" });
   } else
   if (act === "src-clear") {if (confirm(t("清除该 skill 的来源信息？"))) await saveSource(id, { source_url: "" });}
 });
 el.fileTree.addEventListener("click", (e) => {
+  if (e.target.closest("#ftNewFile")) {fileOpNew(false);return;}
+  if (e.target.closest("#ftNewDir")) {fileOpNew(true);return;}
+  const renameBtn = e.target.closest(".ft-rename");
+  if (renameBtn) {fileOpRename(renameBtn.dataset.abs);return;}
+  const delBtn = e.target.closest(".ft-del");
+  if (delBtn) {fileOpDelete(delBtn.dataset.abs);return;}
   if (e.target.closest(".ft-collapse")) {toggleFileTree();return;}
   const tog = e.target.closest(".ft-row[data-toggle]");
   if (tog) {const rel = tog.dataset.toggle;if (state.collapsed.has(rel)) state.collapsed.delete(rel);else state.collapsed.add(rel);renderTree();return;}
@@ -2299,6 +2395,8 @@ if (el.scanDirsModal) el.scanDirsModal.addEventListener("click", (e) => {
   if (chk) {if (chk.checked) dbState.selected.add(chk.dataset.path);else dbState.selected.delete(chk.dataset.path);document.getElementById("dbSel").textContent = t("已选 {n}", { n: dbState.selected.size });}
 });
 el.openBackup.addEventListener("click", openBackup);
+el.openTrash.addEventListener("click", openTrash);
+el.trashEmpty.addEventListener("click", doTrashEmpty);
 el.bkSave.addEventListener("click", saveBackupConfig);
 el.bkTest.addEventListener("click", testBackupConn);
 el.bkPush.addEventListener("click", doBackupPush);

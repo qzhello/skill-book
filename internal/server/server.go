@@ -72,7 +72,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/skills/{id}/files", s.handleSkillFiles)
 	mux.HandleFunc("GET /api/file", s.handleGetFile)
 	mux.HandleFunc("PUT /api/file", s.handlePutFile)
+	mux.HandleFunc("POST /api/file/new", s.handleNewFile)
+	mux.HandleFunc("POST /api/dir/new", s.handleNewDir)
+	mux.HandleFunc("POST /api/file/rename", s.handleRenameEntry)
+	mux.HandleFunc("POST /api/file/delete", s.handleDeleteEntry)
 	mux.HandleFunc("POST /api/skills/trash", s.handleTrash)
+	mux.HandleFunc("GET /api/trash", s.handleListTrash)
+	mux.HandleFunc("POST /api/trash/restore", s.handleRestoreTrash)
+	mux.HandleFunc("POST /api/trash/empty", s.handleEmptyTrash)
 	mux.HandleFunc("POST /api/skills/sync", s.handleSync)
 	mux.HandleFunc("GET /api/groups", s.handleGroups)
 	// 来源链接
@@ -82,8 +89,6 @@ func (s *Server) Handler() http.Handler {
 	// 全局自动检测周期
 	mux.HandleFunc("GET /api/sync-config", s.handleGetSyncConfig)
 	mux.HandleFunc("PUT /api/sync-config", s.handlePutSyncConfig)
-	mux.HandleFunc("GET /api/source-auth", s.handleGetSourceAuth)
-	mux.HandleFunc("PUT /api/source-auth", s.handlePutSourceAuth)
 	mux.HandleFunc("GET /api/scan-dirs", s.handleGetScanDirs)
 	mux.HandleFunc("PUT /api/scan-dirs", s.handlePutScanDirs)
 	mux.HandleFunc("GET /api/browse", s.handleBrowse)

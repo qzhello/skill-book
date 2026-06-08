@@ -112,6 +112,9 @@ func DiscoverPlatformIDs(base string) []string {
 		if len(name) < 2 || !strings.HasPrefix(name, ".") {
 			continue
 		}
+		if name == ".Trash" || name == ".skillbook" {
+			continue // 系统废纸篓与自管目录不作为平台
+		}
 		if !e.IsDir() {
 			// 允许软链接到目录：用 Stat 再确认。
 			if info, serr := os.Stat(filepath.Join(base, name)); serr != nil || !info.IsDir() {

@@ -20,16 +20,17 @@ type Source struct {
 	HasUpdate     bool   `json:"has_update"`
 	CheckedAt     int64  `json:"checked_at"`
 	UpdatedAt     int64  `json:"updated_at"`
+	Token         string `json:"-"` // 私有仓库访问令牌；绝不序列化回前端
 }
 
-const sourceCols = `skill_id,source_kind,source_url,source_ref,source_subpath,source_rev,source_note,sync_policy,auto_check,targets,has_update,checked_at,updated_at`
+const sourceCols = `skill_id,source_kind,source_url,source_ref,source_subpath,source_rev,source_note,sync_policy,auto_check,targets,has_update,checked_at,updated_at,token`
 
 func scanSource(sc interface{ Scan(...any) error }) (*Source, error) {
 	var src Source
 	var auto, hasUpd int
 	if err := sc.Scan(&src.SkillID, &src.SourceKind, &src.SourceURL, &src.SourceRef,
 		&src.SourceSubpath, &src.SourceRev, &src.SourceNote, &src.SyncPolicy,
-		&auto, &src.Targets, &hasUpd, &src.CheckedAt, &src.UpdatedAt); err != nil {
+		&auto, &src.Targets, &hasUpd, &src.CheckedAt, &src.UpdatedAt, &src.Token); err != nil {
 		return nil, err
 	}
 	src.AutoCheck = auto != 0
@@ -60,15 +61,15 @@ func (s *Store) PutSource(src Source) error {
 		hasUpd = 1
 	}
 	_, err := s.db.Exec(`
-INSERT INTO skill_sources(skill_id,source_kind,source_url,source_ref,source_subpath,source_rev,source_note,sync_policy,auto_check,targets,has_update,checked_at,updated_at)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+INSERT INTO skill_sources(skill_id,source_kind,source_url,source_ref,source_subpath,source_rev,source_note,sync_policy,auto_check,targets,has_update,checked_at,updated_at,token)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(skill_id) DO UPDATE SET
   source_kind=excluded.source_kind, source_url=excluded.source_url, source_ref=excluded.source_ref,
   source_subpath=excluded.source_subpath, source_rev=excluded.source_rev, source_note=excluded.source_note,
   sync_policy=excluded.sync_policy, auto_check=excluded.auto_check, targets=excluded.targets,
-  has_update=excluded.has_update, checked_at=excluded.checked_at, updated_at=excluded.updated_at`,
+  has_update=excluded.has_update, checked_at=excluded.checked_at, updated_at=excluded.updated_at, token=excluded.token`,
 		src.SkillID, src.SourceKind, src.SourceURL, src.SourceRef, src.SourceSubpath,
-		src.SourceRev, src.SourceNote, src.SyncPolicy, auto, src.Targets, hasUpd, src.CheckedAt, src.UpdatedAt)
+		src.SourceRev, src.SourceNote, src.SyncPolicy, auto, src.Targets, hasUpd, src.CheckedAt, src.UpdatedAt, src.Token)
 	return err
 }
 
