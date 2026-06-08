@@ -4,9 +4,7 @@ const I18N = {
   en: {
     // 模态提示（整段，路径以纯文本内联）
     "key 仅保存在本机 ~/.skillbook/config.json，不会上传、不回显。": "Key is stored locally in ~/.skillbook/config.json — never uploaded or echoed back.",
-    "key 与令牌仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。": "Key and token are stored locally in ~/.skillbook/ (0600) — never uploaded or echoed back.",
-    "来源访问令牌（私有仓库）": "Source access token (private repos)",
-    "留空则不修改；私有仓库需 repo 读取权限的 GitHub token": "Leave blank to keep; private repos need a GitHub token with repo read scope",
+    "key 仅保存在本机 ~/.skillbook/（0600），不会上传、不回显。": "Key is stored locally in ~/.skillbook/ (0600) — never uploaded or echoed back.",
     "克隆公共仓库的该 skill 目录到 ~/.claude/skills，并自动填好来源链接。仅支持 github.com。": "Clones that skill directory from the public repo into ~/.claude/skills and fills in the source link. Only github.com is supported.",
     "保存在本机 ~/.skillbook/optimizer.md": "Stored locally in ~/.skillbook/optimizer.md",
     // 来源自动检测 / 更新
@@ -19,8 +17,7 @@ const I18N = {
     "自动检测更新": "Auto-check for updates",
     "仓库内子路径（SKILL.md 所在目录，如 cr；根目录留空）": "Subpath in repo (dir containing SKILL.md, e.g. cr; blank for root)",
     "私有仓库访问令牌": "Private repo access token",
-    "ghp_…（对所有私有来源通用，留空不修改）": "ghp_… (shared by all private sources, blank keeps current)",
-    "访问令牌已保存": "Access token saved",
+    "私有仓库填；留空不修改": "For private repos; blank keeps current",
     "更新目标": "Update target",
     "检测到上游有更新，点「检查更新」查看并应用。": "Upstream has updates — click “Check for updates” to review and apply.",
     "有可用更新": "Update available",
@@ -457,7 +454,6 @@ const el = {
   modalScrim: $("#modalScrim"),
   settingsModal: $("#settingsModal"), cfgProvider: $("#cfgProvider"), cfgBaseURL: $("#cfgBaseURL"),
   cfgModel: $("#cfgModel"), cfgKey: $("#cfgKey"), keyHint: $("#keyHint"), cfgSyncInterval: $("#cfgSyncInterval"),
-  cfgSrcToken: $("#cfgSrcToken"), srcTokenHint: $("#srcTokenHint"),
   cfgTest: $("#cfgTest"), cfgStatus: $("#cfgStatus"), cfgSave: $("#cfgSave"),
   newModal: $("#newModal"), newName: $("#newName"), newRecipe: $("#newRecipe"),
   newBrief: $("#newBrief"), newAiHint: $("#newAiHint"), newStatus: $("#newStatus"), newCreate: $("#newCreate"),
@@ -614,8 +610,6 @@ const API = {
   browse: (path) => fetch("/api/browse" + (path ? "?path=" + encodeURIComponent(path) : "")).then(J),
   getScanDirs: () => fetch("/api/scan-dirs").then(J),
   putScanDirs: (body) => fetch("/api/scan-dirs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-  getSourceAuth: () => fetch("/api/source-auth").then(J),
-  putSourceAuth: (body) => fetch("/api/source-auth", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   classify: (force) => fetch("/api/tags/classify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) }),
   classifyStatus: () => fetch("/api/tags/classify/status").then(J),
   setTags: (id, tags) => fetch("/api/skills/" + id + "/tags", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tags }) }),
@@ -1408,8 +1402,7 @@ async function openSourceModal() {
   const s = state.source || {};
   const persisted = s.source_url && !s.inferred;
   const isGithub = s.source_kind === "github_repo";
-  let hasToken = false;
-  try {hasToken = !!(await API.getSourceAuth()).hasToken;} catch {/* ignore */}
+  const hasToken = !!s.has_token;
   const kindOpts = ["github_repo", "github_file", "local_path", "manual", "unknown"].map((k) => `<option value="${k}" ${s.source_kind === k ? "selected" : ""}>${t(KIND_LABEL[k])}</option>`).join("");
   // 更新目标：默认取已存 targets，否则用该 skill 当前所在平台
   const tset = new Set((s.targets || (state.current && state.current.platform) || "claude").split(",").map((x) => x.trim()).filter(Boolean));
@@ -1435,8 +1428,8 @@ async function openSourceModal() {
         ${targetBoxes}
       </div>
       ${isGithub ? `<div class="src-token-line">
-        <span class="src-mut">${t("私有仓库访问令牌")} <i>${hasToken ? t("（已配置，可留空）") : t("（未配置）")}</i></span>
-        <input class="src-in" id="srcTokenIn" type="password" placeholder="${t("ghp_…（对所有私有来源通用，留空不修改）")}" />
+        <span class="src-mut">${t("私有仓库访问令牌")} <i id="srcTokenHint2">${hasToken ? t("（已配置，可留空）") : t("（未配置）")}</i></span>
+        <input class="src-in" id="srcToken" type="password" placeholder="${t("私有仓库填；留空不修改")}" />
       </div>` : ""}
     </div>
     <div class="src-row" style="margin-top:14px">
@@ -2001,10 +1994,6 @@ async function fillSettings() {
     el.cfgStatus.textContent = "";el.cfgStatus.className = "cfg-status";
   } catch {toast(t("读取配置失败"), "err");}
   if (el.cfgSyncInterval) {try {const sc = await API.getSyncConfig();el.cfgSyncInterval.value = String(sc.interval_min || 0);} catch {/* ignore */}}
-  if (el.cfgSrcToken) {
-    el.cfgSrcToken.value = "";
-    try {const sa = await API.getSourceAuth();el.srcTokenHint.textContent = sa.hasToken ? t("（已配置，可留空）") : t("（未配置）");} catch {el.srcTokenHint.textContent = "";}
-  }
 }
 function readSettingsForm() {
   return { provider: el.cfgProvider.value, baseURL: el.cfgBaseURL.value.trim(), model: el.cfgModel.value.trim(), apiKey: el.cfgKey.value };
@@ -2012,7 +2001,6 @@ function readSettingsForm() {
 async function saveSettings() {
   el.cfgSave.disabled = true;
   if (el.cfgSyncInterval) {try {await API.putSyncConfig({ interval_min: parseInt(el.cfgSyncInterval.value, 10) || 0 });} catch {/* ignore */}}
-  if (el.cfgSrcToken && el.cfgSrcToken.value.trim()) {try {await API.putSourceAuth({ token: el.cfgSrcToken.value.trim() });} catch {/* ignore */}}
   try {const r = await API.putConfig(readSettingsForm());if (r.ok) {toast(t("已保存设置"));await probeAI();closeModal();} else toast(t("保存失败"), "err");}
   catch {toast(t("保存失败"), "err");} finally {el.cfgSave.disabled = false;}
 }
@@ -2235,9 +2223,8 @@ el.sourceModalBody.addEventListener("click", async (e) => {
   if (act === "src-copy") {if (state.source && navigator.clipboard) navigator.clipboard.writeText(state.source.source_url);toast(t("已复制来源链接"));} else
   if (act === "src-check") {closeModal();doCheckUpdate(id);} else
   if (act === "src-save") {
-    const tokEl = $("#srcTokenIn");
-    if (tokEl && tokEl.value.trim()) {try {await API.putSourceAuth({ token: tokEl.value.trim() });toast(t("访问令牌已保存"));} catch {/* ignore */}}
-    await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_subpath: $("#srcSubpath") ? $("#srcSubpath").value.trim() : "", source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets() });
+    const tokEl = $("#srcToken");
+    await saveSource(id, { source_url: $("#srcUrl").value.trim(), source_kind: $("#srcKind").value, source_ref: $("#srcRef").value.trim(), source_subpath: $("#srcSubpath") ? $("#srcSubpath").value.trim() : "", source_note: $("#srcNote").value.trim(), auto_check: $("#srcAuto") ? $("#srcAuto").checked : false, targets: readSourceTargets(), token: tokEl ? tokEl.value : "" });
   } else
   if (act === "src-clear") {if (confirm(t("清除该 skill 的来源信息？"))) await saveSource(id, { source_url: "" });}
 });
