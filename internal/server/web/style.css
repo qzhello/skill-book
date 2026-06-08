@@ -708,3 +708,9 @@ body{
 .bk-pager{display:flex;align-items:center;justify-content:center;gap:10px;padding-top:10px;margin-top:8px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--muted)}
 .bk-pager[hidden]{display:none}
 .bk-page-info{min-width:72px;text-align:center}
+.ft-ops{opacity:0;display:inline-flex;gap:4px;margin-left:auto;padding-left:8px}
+.ft-row:hover .ft-ops{opacity:1}
+.ft-ops button,.ft-act{background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:2px 4px;border-radius:4px}
+.ft-ops button:hover,.ft-act:hover{background:var(--accent-weak);color:var(--accent)}
+.ft-act{margin-left:6px}
+.sheet-body.ft-collapsed .ft-act{display:none}

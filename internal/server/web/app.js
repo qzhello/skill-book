@@ -243,6 +243,20 @@ const I18N = {
     "{n} skills": "{n} skills",
     "没有匹配的 skill": "No matching skills",
     "（空目录）": "(empty directory)",
+    "新建文件": "New file",
+    "新建文件夹": "New folder",
+    "文件": "File",
+    "文件夹": "Folder",
+    "新建文件名称": "New file name",
+    "新建文件夹名称": "New folder name",
+    "重命名": "Rename",
+    "重命名为": "Rename to",
+    "删除": "Delete",
+    "已创建": "Created",
+    "已重命名": "Renamed",
+    "重命名失败": "Rename failed",
+    "已移到废纸篓": "Moved to Trash",
+    "将「{n}」移到废纸篓（可在访达恢复）。确定？": "Move “{n}” to Trash (recoverable in Finder)? Confirm?",
     "当前文件有未保存修改，切换将丢失。确定切换？": "The current file has unsaved changes that will be lost. Switch anyway?",
     "读取文件失败": "Failed to read file",
     "读取失败：{e}": "Read failed: {e}",
@@ -597,6 +611,10 @@ const API = {
   files: (id) => fetch("/api/skills/" + id + "/files").then(J),
   readFile: (path) => fetch("/api/file?path=" + encodeURIComponent(path)).then(J),
   putFile: (path, content) => fetch("/api/file", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, content }) }),
+  newFile: (dir, name) => fetch("/api/file/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir, name }) }),
+  newDir: (dir, name) => fetch("/api/dir/new", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir, name }) }),
+  renameEntry: (path, newName) => fetch("/api/file/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, newName }) }),
+  deleteEntry: (path) => fetch("/api/file/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
   trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
   groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
   sync: (fromId, toIds) => fetch("/api/skills/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fromId, toIds }) }),
@@ -690,7 +708,10 @@ function applyFileTreeCollapsed() {
 }
 // file-tree 顶部表头（含收起/展开按钮），随 renderTree 重渲染
 function fileTreeHeadHtml() {
-  return `<div class="ft-head"><button class="ft-collapse" title="${t("收起 / 展开文件目录")}" aria-label="${t("收起 / 展开文件目录")}">` +
+  return `<div class="ft-head">` +
+    `<button class="ft-act" id="ftNewFile" title="${t("新建文件")}">＋${t("文件")}</button>` +
+    `<button class="ft-act" id="ftNewDir" title="${t("新建文件夹")}">＋${t("文件夹")}</button>` +
+    `<button class="ft-collapse" title="${t("收起 / 展开文件目录")}" aria-label="${t("收起 / 展开文件目录")}">` +
     '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>' +
     '</button></div>';
 }
@@ -1158,20 +1179,49 @@ function renderNode(node, depth) {
   for (const k of kids) {
     const pad = 8 + depth * 14;
     const hasChildren = Object.keys(k.children).length > 0;
+    const isMainSkill = !k.dir && k.name === "SKILL.md";
+    const ops = (k.abs && !isMainSkill)
+      ? `<span class="ft-ops"><button class="ft-rename" data-abs="${esc(k.abs)}" title="${t("重命名")}">✎</button><button class="ft-del" data-abs="${esc(k.abs)}" title="${t("删除")}">🗑</button></span>`
+      : "";
     if (k.dir) {
       const collapsed = state.collapsed.has(k.rel);
       const chev = hasChildren ? `<span class="ft-chevwrap${collapsed ? "" : " open"}">${CHEVRON_SVG}</span>` : '<span class="ft-chevwrap"></span>';
-      html += `<div class="ft-row dir"${hasChildren ? ` data-toggle="${esc(k.rel)}"` : ""} style="padding-left:${pad}px">${chev}${FOLDER_SVG}<span>${esc(k.name)}</span></div>`;
+      html += `<div class="ft-row dir"${hasChildren ? ` data-toggle="${esc(k.rel)}"` : ""} style="padding-left:${pad}px">${chev}${FOLDER_SVG}<span>${esc(k.name)}</span>${ops}</div>`;
       if (hasChildren && !collapsed) html += renderNode(k, depth + 1);
     } else {
       const active = k.abs === state.filePath ? " active" : "";
-      html += `<div class="ft-row file${active}" data-abs="${esc(k.abs)}" title="${esc(k.rel)}" style="padding-left:${pad + 14}px">${FILE_SVG}<span>${esc(k.name)}</span></div>`;
+      html += `<div class="ft-row file${active}" data-abs="${esc(k.abs)}" title="${esc(k.rel)}" style="padding-left:${pad + 14}px">${FILE_SVG}<span>${esc(k.name)}</span>${ops}</div>`;
     }
   }
   return html;
 }
 function renderTree() {
   el.fileTree.innerHTML = fileTreeHeadHtml() + (renderNode(buildTree(), 0) || `<div class="ft-row dir" style="padding-left:8px">${t("（空目录）")}</div>`);
+}
+async function fileOpNew(isDir) {
+  if (!state.current) return;
+  const name = prompt(isDir ? t("新建文件夹名称") : t("新建文件名称"));
+  if (!name) return;
+  const r = await (isDir ? API.newDir(state.current.dir, name) : API.newFile(state.current.dir, name));
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已创建")); await loadFiles(state.current.id); }
+  else { toast(d.error || t("创建失败"), "err"); }
+}
+async function fileOpRename(abs) {
+  const cur = abs.split("/").pop();
+  const name = prompt(t("重命名为"), cur);
+  if (!name || name === cur) return;
+  const r = await API.renameEntry(abs, name);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已重命名")); if (state.current) await loadFiles(state.current.id); }
+  else { toast(d.error || t("重命名失败"), "err"); }
+}
+async function fileOpDelete(abs) {
+  if (!confirm(t("将「{n}」移到废纸篓（可在访达恢复）。确定？", { n: abs.split("/").pop() }))) return;
+  const r = await API.deleteEntry(abs);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已移到废纸篓")); if (state.current) await loadFiles(state.current.id); }
+  else { toast(d.error || t("删除失败"), "err"); }
 }
 async function openFile(abs, mode) {
   if (state.dirty && state.filePath && state.filePath !== abs &&
@@ -2229,6 +2279,12 @@ el.sourceModalBody.addEventListener("click", async (e) => {
   if (act === "src-clear") {if (confirm(t("清除该 skill 的来源信息？"))) await saveSource(id, { source_url: "" });}
 });
 el.fileTree.addEventListener("click", (e) => {
+  if (e.target.closest("#ftNewFile")) {fileOpNew(false);return;}
+  if (e.target.closest("#ftNewDir")) {fileOpNew(true);return;}
+  const renameBtn = e.target.closest(".ft-rename");
+  if (renameBtn) {fileOpRename(renameBtn.dataset.abs);return;}
+  const delBtn = e.target.closest(".ft-del");
+  if (delBtn) {fileOpDelete(delBtn.dataset.abs);return;}
   if (e.target.closest(".ft-collapse")) {toggleFileTree();return;}
   const tog = e.target.closest(".ft-row[data-toggle]");
   if (tog) {const rel = tog.dataset.toggle;if (state.collapsed.has(rel)) state.collapsed.delete(rel);else state.collapsed.add(rel);renderTree();return;}
