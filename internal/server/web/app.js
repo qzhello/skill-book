@@ -145,8 +145,11 @@ const I18N = {
     "使用 HTTPS": "Use HTTPS",
     "测试连接": "Test connection",
     "上次备份：{t} · 共 {n} 份": "Last backup: {t} · {n} total",
-    "尚未配置备份（在下方 S3 配置中填写）": "Backup not configured (fill in S3 settings below)",
+    "尚未配置备份（在左侧 S3 配置中填写）": "Backup not configured (fill in S3 settings on the left)",
     "配置后可在此查看历史备份": "Backups appear here once configured",
+    "上一页": "Prev",
+    "下一页": "Next",
+    "第 {c}/{n} 页": "Page {c}/{n}",
     "还没有备份，点击「立即备份」": "No backups yet — click \"Backup now\"",
     "获取备份列表失败": "Failed to load backup list",
     "{n} 个文件": "{n} files",
@@ -435,7 +438,7 @@ const el = {
   bkBucket: $("#bkBucket"), bkPrefix: $("#bkPrefix"), bkKeep: $("#bkKeep"),
   bkAccessKey: $("#bkAccessKey"), bkSecretKey: $("#bkSecretKey"), bkSecretHint: $("#bkSecretHint"),
   bkUseSSL: $("#bkUseSSL"), bkTest: $("#bkTest"), bkSave: $("#bkSave"),
-  bkStatus: $("#bkStatus"), bkPush: $("#bkPush"),
+  bkStatus: $("#bkStatus"), bkPush: $("#bkPush"), bkPager: $("#bkPager"),
   optimizeModal: $("#optimizeModal"), optSub: $("#optSub"), optBody: $("#optBody"), optSel: $("#optSel"),
   optAll: $("#optAll"), optNone: $("#optNone"), optApply: $("#optApply"),
   optimizerModal: $("#optimizerModal"), optimizerEd: $("#optimizerEd"), optimizerSave: $("#optimizerSave"),
@@ -1684,11 +1687,16 @@ function fmtTime(unix) {
 // 记录后端是否已存有 Secret：用于「自动保存」时判断 Secret 是否为必填
 // （已存在时表单留空表示沿用原值，不算缺失）。
 let backupHasSecret = false;
+// 历史备份分页状态：全部归档缓存在 backupArchives，按 BK_PAGE_SIZE 分页。
+let backupArchives = [];
+let backupPage = 0;
+const BK_PAGE_SIZE = 10;
 
-// ensureSettingsOpen 展开「S3 配置」可折叠面板，便于用户补全/保存。
-function ensureSettingsOpen() {
-  const d = document.querySelector(".bk-settings");
-  if (d) d.open = true;
+// focusBackupField 聚焦左栏指定的配置输入框（用于缺项提示后定位）。
+function focusBackupField(label) {
+  const map = { "Endpoint": el.bkEndpoint, "Bucket": el.bkBucket, "Access Key": el.bkAccessKey, "Secret Key": el.bkSecretKey };
+  const node = map[label];
+  if (node) node.focus();
 }
 
 async function openBackup() {
@@ -1707,21 +1715,32 @@ async function openBackup() {
     el.bkSecretHint.textContent = cfg.hasSecret ? t("已保存（留空不改）") : t("必填");
     el.backupStatus.textContent = st.configured ?
       t("上次备份：{t} · 共 {n} 份", { t: st.lastBackup ? fmtTime(st.lastBackup) : "—", n: st.count || 0 }) :
-      t("尚未配置备份（在下方 S3 配置中填写）");
-    // 尚未配置时自动展开配置面板，避免用户找不到「保存配置」。
-    if (!st.configured) ensureSettingsOpen();
+      t("尚未配置备份（在左侧 S3 配置中填写）");
     await loadBackupList(st.configured);
   } catch { el.backupStatus.textContent = t("载入备份配置失败"); }
 }
 
 async function loadBackupList(configured) {
-  if (!configured) { el.bkList.innerHTML = `<div class="bk-empty">${t("配置后可在此查看历史备份")}</div>`; return; }
+  el.bkPager.hidden = true;
+  if (!configured) { backupArchives = []; el.bkList.innerHTML = `<div class="bk-empty">${t("配置后可在此查看历史备份")}</div>`; return; }
   el.bkList.innerHTML = `<div class="bk-empty">${t("加载中…")}</div>`;
   try {
     const d = await API.backupList();
-    const arr = (d.archives || []);
-    if (!arr.length) { el.bkList.innerHTML = `<div class="bk-empty">${t("还没有备份，点击「立即备份」")}</div>`; return; }
-    el.bkList.innerHTML = arr.map((a) => `
+    backupArchives = d.archives || [];
+    backupPage = 0;
+    renderBackupPage();
+  } catch { backupArchives = []; el.bkList.innerHTML = `<div class="bk-empty">${t("获取备份列表失败")}</div>`; }
+}
+
+// renderBackupPage 渲染当前页的历史备份，并在超过一页时显示分页控件。
+function renderBackupPage() {
+  const arr = backupArchives;
+  if (!arr.length) { el.bkList.innerHTML = `<div class="bk-empty">${t("还没有备份，点击「立即备份」")}</div>`; el.bkPager.hidden = true; return; }
+  const pages = Math.ceil(arr.length / BK_PAGE_SIZE);
+  backupPage = Math.min(Math.max(backupPage, 0), pages - 1);
+  const start = backupPage * BK_PAGE_SIZE;
+  const slice = arr.slice(start, start + BK_PAGE_SIZE);
+  el.bkList.innerHTML = slice.map((a) => `
       <div class="bk-item">
         <div class="bk-item-main">
           <span class="bk-item-time">${a.time ? fmtTime(a.time) : esc(a.name)}</span>
@@ -1729,9 +1748,20 @@ async function loadBackupList(configured) {
         </div>
         <button class="btn btn-ghost btn-sm bk-restore" data-name="${esc(a.name)}">${t("恢复")}</button>
       </div>`).join("");
-    el.bkList.querySelectorAll(".bk-restore").forEach((b) =>
-      b.addEventListener("click", () => doBackupRestore(b.dataset.name, b)));
-  } catch { el.bkList.innerHTML = `<div class="bk-empty">${t("获取备份列表失败")}</div>`; }
+  el.bkList.querySelectorAll(".bk-restore").forEach((b) =>
+    b.addEventListener("click", () => doBackupRestore(b.dataset.name, b)));
+  if (pages > 1) {
+    el.bkPager.hidden = false;
+    el.bkPager.innerHTML = `
+      <button class="btn btn-ghost btn-sm" id="bkPrev" ${backupPage === 0 ? "disabled" : ""}>${t("上一页")}</button>
+      <span class="bk-page-info">${t("第 {c}/{n} 页", { c: backupPage + 1, n: pages })}</span>
+      <button class="btn btn-ghost btn-sm" id="bkNext" ${backupPage >= pages - 1 ? "disabled" : ""}>${t("下一页")}</button>`;
+    el.bkPager.querySelector("#bkPrev").addEventListener("click", () => { if (backupPage > 0) { backupPage--; renderBackupPage(); } });
+    el.bkPager.querySelector("#bkNext").addEventListener("click", () => { if (backupPage < pages - 1) { backupPage++; renderBackupPage(); } });
+  } else {
+    el.bkPager.hidden = true;
+    el.bkPager.innerHTML = "";
+  }
 }
 
 function fmtSize(n) {
@@ -1764,7 +1794,7 @@ async function ensureBackupSaved() {
   if (!cfg.bucket) missing.push("Bucket");
   if (!cfg.accessKey) missing.push("Access Key");
   if (!cfg.secretKey && !backupHasSecret) missing.push("Secret Key");
-  if (missing.length) { toast(t("请先填写：{f}", { f: missing.join("、") }), "err"); ensureSettingsOpen(); return false; }
+  if (missing.length) { toast(t("请先填写：{f}", { f: missing.join("、") }), "err"); focusBackupField(missing[0]); return false; }
   el.bkStatus.textContent = t("保存中…");
   try {
     const r = await API.putBackupConfig(cfg);
@@ -1873,7 +1903,6 @@ async function doApplyUpdate() {
 }
 
 /* ---------- dup/conflict groups ---------- */
-function fmtSize(n) {if (n < 1024) return n + " B";if (n < 1048576) return (n / 1024).toFixed(1) + " KB";return (n / 1048576).toFixed(1) + " MB";}
 async function openGroups(kind) {
   state.groupKind = kind;state.groupSel = new Set();
   el.groupsTitle.textContent = kind === "conflict" ? t("冲突管理") : t("重复管理");
