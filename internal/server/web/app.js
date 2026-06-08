@@ -134,6 +134,15 @@ const I18N = {
     "保存在本机 ~/.skillbook/classifier.md；留空恢复默认。{vocab} 会替换为已有标签。": "Stored locally in ~/.skillbook/classifier.md; empty restores default. {vocab} is replaced with existing tags.",
     "已保存分类规则": "Tagging rules saved",
     "备份与同步": "Backup & Sync",
+    "垃圾桶": "Trash",
+    "查看与恢复已删除的 Skill": "View and restore deleted skills",
+    "已删除的 Skill": "Deleted skills",
+    "清空回收站": "Empty trash",
+    "回收站是空的": "Trash is empty",
+    "读取回收站失败": "Failed to load trash",
+    "清空回收站？内容会被移到系统废纸篓（仍可在访达恢复）。": "Empty trash? Items will be moved to the system Trash (still recoverable in Finder).",
+    "已清空回收站": "Trash emptied",
+    "清空失败": "Empty failed",
     "历史备份": "Backup history",
     "S3 配置": "S3 settings",
     "如 s3.amazonaws.com / R2 / MinIO 地址": "e.g. s3.amazonaws.com / R2 / MinIO endpoint",
@@ -444,6 +453,7 @@ const el = {
   sheetTags: $("#sheetTags"), editTags: $("#editTags"),
   clsBar: $("#clsBar"), clsBarFill: $("#clsBarFill"), clsBarText: $("#clsBarText"),
   editOptimizer: $("#editOptimizer"), openBackup: $("#openBackup"),
+  openTrash: $("#openTrash"), trashModal: $("#trashModal"), trashList: $("#trashList"), trashEmpty: $("#trashEmpty"),
   backupModal: $("#backupModal"), backupStatus: $("#backupStatus"),
   bkList: $("#bkList"), bkEndpoint: $("#bkEndpoint"), bkRegion: $("#bkRegion"),
   bkBucket: $("#bkBucket"), bkPrefix: $("#bkPrefix"), bkKeep: $("#bkKeep"),
@@ -616,6 +626,9 @@ const API = {
   renameEntry: (path, newName) => fetch("/api/file/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, newName }) }),
   deleteEntry: (path) => fetch("/api/file/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
   trash: (dirs) => fetch("/api/skills/trash", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dirs }) }),
+  trashItems: () => fetch("/api/trash").then(J),
+  trashRestore: (id) => fetch("/api/trash/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }),
+  trashEmptyAll: () => fetch("/api/trash/empty", { method: "POST" }),
   groups: (kind) => fetch("/api/groups?kind=" + kind).then(J),
   sync: (fromId, toIds) => fetch("/api/skills/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ fromId, toIds }) }),
   getSource: (id) => fetch("/api/skills/" + id + "/source").then(J),
@@ -1888,6 +1901,46 @@ async function doBackupRestore(name, btn) {
   } catch { toast(t("恢复失败"), "err"); }
   finally { el.bkStatus.textContent = ""; if (btn) { btn.classList.remove("loading"); btn.disabled = false; } }
 }
+
+// openTrash 打开垃圾桶弹窗并加载已删除的 skill 清单。
+async function openTrash() {
+  openModal(el.trashModal);
+  el.trashList.innerHTML = `<div class="bk-empty">${t("加载中…")}</div>`;
+  try {
+    const d = await API.trashItems();
+    const items = d.items || [];
+    if (!items.length) { el.trashList.innerHTML = `<div class="bk-empty">${t("回收站是空的")}</div>`; return; }
+    el.trashList.innerHTML = items.map((it) => `
+      <div class="bk-item">
+        <div class="bk-item-main">
+          <span class="bk-item-time">${esc(it.name)}</span>
+          <span class="bk-item-meta">${esc(it.origPath || "")}${it.deletedAt ? " · " + fmtTime(it.deletedAt) : ""}</span>
+        </div>
+        <button class="btn btn-ghost btn-sm tr-restore" data-id="${esc(it.id)}">${t("恢复")}</button>
+      </div>`).join("");
+    el.trashList.querySelectorAll(".tr-restore").forEach((b) =>
+      b.addEventListener("click", () => doTrashRestore(b.dataset.id, b)));
+  } catch { el.trashList.innerHTML = `<div class="bk-empty">${t("读取回收站失败")}</div>`; }
+}
+
+// doTrashRestore 恢复一项已删除的 skill 到原路径。
+async function doTrashRestore(id, btn) {
+  if (btn) { btn.disabled = true; }
+  const r = await API.trashRestore(id);
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已恢复")); await openTrash(); doScan(); }
+  else { toast(d.error || t("恢复失败"), "err"); if (btn) btn.disabled = false; }
+}
+
+// doTrashEmpty 清空回收站：内容移到系统废纸篓。
+async function doTrashEmpty() {
+  if (!confirm(t("清空回收站？内容会被移到系统废纸篓（仍可在访达恢复）。"))) return;
+  const r = await API.trashEmptyAll();
+  const d = await r.json().catch(() => ({}));
+  if (r.ok) { toast(t("已清空回收站")); await openTrash(); }
+  else { toast(d.error || t("清空失败"), "err"); }
+}
+
 function lineDiff(oldT, newT) {
   const a = (oldT || "").split("\n"),b = (newT || "").split("\n");
   const m = a.length,n = b.length;
@@ -2342,6 +2395,8 @@ if (el.scanDirsModal) el.scanDirsModal.addEventListener("click", (e) => {
   if (chk) {if (chk.checked) dbState.selected.add(chk.dataset.path);else dbState.selected.delete(chk.dataset.path);document.getElementById("dbSel").textContent = t("已选 {n}", { n: dbState.selected.size });}
 });
 el.openBackup.addEventListener("click", openBackup);
+el.openTrash.addEventListener("click", openTrash);
+el.trashEmpty.addEventListener("click", doTrashEmpty);
 el.bkSave.addEventListener("click", saveBackupConfig);
 el.bkTest.addEventListener("click", testBackupConn);
 el.bkPush.addEventListener("click", doBackupPush);

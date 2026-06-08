@@ -213,6 +213,11 @@
         <span class="cmi-txt"><span class="cmi-title" data-i18n="备份与同步">备份与同步</span><span class="cmi-desc" data-i18n="备份到 GitHub 仓库">备份到 GitHub 仓库</span></span>
         <span class="cmi-chev">›</span>
       </button>
+      <button id="openTrash" class="cfg-menu-item">
+        <span class="cmi-ico"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></span>
+        <span class="cmi-txt"><span class="cmi-title" data-i18n="垃圾桶">垃圾桶</span><span class="cmi-desc" data-i18n="查看与恢复已删除的 Skill">查看与恢复已删除的 Skill</span></span>
+        <span class="cmi-chev">›</span>
+      </button>
     </div>
   </div>
   <div class="modal-foot">
@@ -403,6 +408,17 @@
       <div id="bkList" class="bk-list"></div>
       <div id="bkPager" class="bk-pager" hidden></div>
     </div>
+  </div>
+</div>
+
+<div id="trashModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="垃圾桶">
+  <div class="modal-head"><h3 data-i18n="垃圾桶">垃圾桶</h3><button class="icon-btn" data-close><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+  <div class="modal-body">
+    <div class="bk-list-head">
+      <span class="sd-col-title sd-col-title-inline" data-i18n="已删除的 Skill">已删除的 Skill</span>
+      <button id="trashEmpty" class="btn btn-danger btn-sm" data-i18n="清空回收站">清空回收站</button>
+    </div>
+    <div id="trashList" class="bk-list"></div>
   </div>
 </div>
 
