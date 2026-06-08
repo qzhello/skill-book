@@ -9,17 +9,19 @@
 
 ---
 
-SkillBook is a **fully local**, single-process web app (one Go binary with the frontend embedded — no Node required): scan every Skill on your machine, search command-palette style, edit each Skill as a directory, run per-dimension AI optimization with per-suggestion accept/reject, and import from GitHub with upstream update checks. Your data stays on your machine; secrets are stored locally and never committed.
+SkillBook is a **fully local**, single-process web app (one Go binary with the frontend embedded — no Node required): scan every Skill on your machine, search command-palette style, edit each Skill as a directory, run per-dimension AI optimization with per-suggestion accept/reject, auto-tag Skills with AI, import from GitHub with upstream update checks, and archive backups to your own S3. Your data stays on your machine; secrets are stored locally and never committed.
 
 ## ✨ Features
 
-- **Unified browse / search** — scans `~/.claude/skills`, project-level `.claude/skills`, and `~/.codex/skills`; FTS5 full-text search with exact-name priority; virtualized list for thousands of entries.
+- **Unified browse / search** — scans auto-discovered per-platform Skills (`~/.claude/skills`, `~/.codex/skills`, etc.) plus your custom project directories; FTS5 full-text search with exact-name priority; virtualized list for thousands of entries.
+- **Configurable scan dirs / projects** — `~/.<tool>/skills` are checked by default (can be unchecked), and you can add/remove project directories to scan (built-in folder browser with multi-select); each directory is a "project" whose `SKILL.md` files are scanned recursively, and you can filter by project.
+- **Tag classification** — after scanning, auto-tag Skills with AI (incremental, skips already-tagged, batched & async with a progress bar); supports multiple tags, search/filter by tag, and manual editing; the classifier ruleset is editable in-app (`~/.skillbook/classifier.md`).
 - **Duplicate vs. conflict** — same name + same body is flagged "duplicate"; same name + different body is flagged "naming conflict"; bulk locate / move-to-Trash.
 - **Directory-level editing** — a Skill is a directory: file tree + CodeMirror, browse/edit modes; saving auto-commits when the file already lives in a git work tree.
 - **AI optimization as a Skill** — ships an editable review ruleset (`~/.skillbook/optimizer.md`) you can tune in-app; the model audits per dimension and returns structured suggestions you accept one by one (exact string replacement). Works with DeepSeek / OpenAI / Claude / local Ollama, etc.
-- **Source governance** — annotate each Skill with a source link (a chip in the title); GitHub sources support "check for updates"; import a Skill directory straight from github.com.
-- **GitHub backup / restore** — one click to back up user-level `~/.claude/skills` and `~/.codex/skills` to your own private GitHub repo, and restore from it (the overwritten local dirs go to Trash first). The token is passed to git via an environment variable (never in the URL / config / logs) and stored only in `~/.skillbook/backup.json` (0600).
-- **Security first** — deletes go to the system Trash (never `rm`), symlink path-traversal defense, outbound requests restricted to github.com, API keys live only in `~/.skillbook/config.json` (0600, never echoed, never uploaded).
+- **Source governance** — annotate each Skill with a source link (a chip in the title); GitHub sources support "check for updates"; import a Skill directory straight from github.com; private repos can be given an access token (masked display, stored locally only).
+- **S3 backup / restore** — one click to pack user-level `~/.claude/skills` and `~/.codex/skills` into a timestamped `tar.gz` archive and upload it to your own S3 (compatible with Cloudflare R2 / MinIO / Aliyun OSS); keeps a configurable number of historical versions (default 20, oldest auto-pruned), and you can browse the history list and restore any version (overwritten local dirs go to Trash first). The secret is stored only in `~/.skillbook/backup.json` (0600, never echoed, uploaded, or included in backups).
+- **Security first** — deletes go to the system Trash (never `rm`), symlink & path-traversal defense (including zip-slip protection when unpacking archives), outbound requests restricted to github.com, API keys / credentials live only in `~/.skillbook/*.json` (0600, never echoed, never uploaded).
 
 ## 🖥 Requirements
 
@@ -81,9 +83,11 @@ Environment-variable fallback is supported (e.g. `ANTHROPIC_API_KEY`). **Keys ar
 
 ## 📂 Scanned source directories
 
-- `~/.claude/skills` (user level)
-- `<cwd>/.claude/skills` (project level)
-- `~/.codex/skills` (user level)
+By default it scans auto-discovered per-platform user-level directories (e.g. `~/.claude/skills`, `~/.codex/skills`) plus the project-level `.claude/skills` under the current directory. Customize them under "Settings → Scan directories":
+
+- `~/.<tool>/skills` (user level, checked by default, can be unchecked)
+- `<cwd>/.<tool>/skills` (project level)
+- Any custom project directory (its `SKILL.md` files are scanned recursively; each directory is a "project")
 
 ## 🔐 Security & privacy
 
@@ -94,7 +98,7 @@ Environment-variable fallback is supported (e.g. `ANTHROPIC_API_KEY`). **Keys ar
 
 ## 🗺 Roadmap
 
-- Automatic upstream updates, semantic retrieval
+- Semantic retrieval, scheduled auto-backup, cross-platform support
 
 ## 📄 License
 

@@ -78,7 +78,7 @@ func (s *Server) checkOneSource(ctx context.Context, skillID string) {
 	if perr != nil {
 		return
 	}
-	token := loadSourceToken()
+	token := src.Token
 	rawURL := s.upstreamSkillURL(owner, repo, src.SourceRef, src.SourceSubpath, token)
 	remote, ferr := fetchRaw(ctx, rawURL, token)
 	if ferr != nil {

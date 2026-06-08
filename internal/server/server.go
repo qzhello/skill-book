@@ -82,8 +82,6 @@ func (s *Server) Handler() http.Handler {
 	// 全局自动检测周期
 	mux.HandleFunc("GET /api/sync-config", s.handleGetSyncConfig)
 	mux.HandleFunc("PUT /api/sync-config", s.handlePutSyncConfig)
-	mux.HandleFunc("GET /api/source-auth", s.handleGetSourceAuth)
-	mux.HandleFunc("PUT /api/source-auth", s.handlePutSourceAuth)
 	mux.HandleFunc("GET /api/scan-dirs", s.handleGetScanDirs)
 	mux.HandleFunc("PUT /api/scan-dirs", s.handlePutScanDirs)
 	mux.HandleFunc("GET /api/browse", s.handleBrowse)

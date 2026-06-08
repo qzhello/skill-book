@@ -117,6 +117,7 @@ func sourceResponse(src store.Source, inferred bool) map[string]any {
 		"source_subpath": src.SourceSubpath, "source_rev": src.SourceRev, "source_note": src.SourceNote,
 		"sync_policy": src.SyncPolicy, "auto_check": src.AutoCheck, "targets": src.Targets,
 		"has_update": src.HasUpdate, "checked_at": src.CheckedAt, "inferred": inferred,
+		"has_token": src.Token != "",
 	}
 }
 
@@ -155,6 +156,7 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		SyncPolicy    string   `json:"sync_policy"`
 		AutoCheck     bool     `json:"auto_check"`
 		Targets       []string `json:"targets"`
+		Token         string   `json:"token"`
 	}
 	if !readJSONBody(w, r, &body) {
 		return
@@ -197,6 +199,12 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 	if targets == "" {
 		targets = string(sk.Platform) // 默认目标 = 该 skill 当前所在平台
 	}
+	token := strings.TrimSpace(body.Token)
+	if token == "" {
+		if old, found, _ := s.st.GetSource(id); found {
+			token = old.Token // 留空表示沿用原令牌
+		}
+	}
 	src := store.Source{
 		SkillID:       id,
 		SourceKind:    kind,
@@ -207,6 +215,7 @@ func (s *Server) handlePutSource(w http.ResponseWriter, r *http.Request) {
 		SyncPolicy:    syncPolicy,
 		AutoCheck:     body.AutoCheck && kind == "github_repo", // 仅 github_repo 支持自动检测
 		Targets:       targets,
+		Token:         token,
 		UpdatedAt:     time.Now().Unix(),
 	}
 	if err := s.st.PutSource(src); err != nil {

@@ -157,3 +157,29 @@ func TestInferSourceNoGit(t *testing.T) {
 		t.Fatal("expected ok=false outside git repo")
 	}
 }
+
+func TestPutSourceTokenHiddenOnGet(t *testing.T) {
+	srv := newSrv(t)
+	id := mkSkill(t, srv, t.TempDir(), "s1", "x", model.PlatformClaude)
+
+	rec := do(t, srv, http.MethodPut, "/api/skills/"+id+"/source",
+		`{"source_url":"https://github.com/o/r","source_kind":"github_repo","token":"ghp_secret_aaa"}`)
+	if rec.Code != 200 {
+		t.Fatalf("put source code=%d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, srv, http.MethodGet, "/api/skills/"+id+"/source", "")
+	body := rec.Body.String()
+	if strings.Contains(body, "ghp_secret_aaa") {
+		t.Fatalf("token leaked in GET: %s", body)
+	}
+	if !strings.Contains(body, `"has_token":true`) {
+		t.Fatalf("expected has_token:true, got %s", body)
+	}
+	// 再次保存且 token 留空 → 应保留原 token
+	do(t, srv, http.MethodPut, "/api/skills/"+id+"/source",
+		`{"source_url":"https://github.com/o/r","source_kind":"github_repo","token":""}`)
+	src, _, _ := srv.st.GetSource(id)
+	if src.Token != "ghp_secret_aaa" {
+		t.Fatalf("blank token should keep stored value, got %q", src.Token)
+	}
+}

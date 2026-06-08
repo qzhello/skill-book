@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS skill_sources (
   targets        TEXT NOT NULL DEFAULT '',
   has_update     INTEGER NOT NULL DEFAULT 0,
   checked_at     INTEGER NOT NULL DEFAULT 0,
-  updated_at     INTEGER NOT NULL DEFAULT 0
+  updated_at     INTEGER NOT NULL DEFAULT 0,
+  token          TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS skill_tags (
   skill_id   TEXT PRIMARY KEY,
@@ -63,6 +64,7 @@ func Open(dsn string) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN targets TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN has_update INTEGER NOT NULL DEFAULT 0`)
 	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN checked_at INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE skill_sources ADD COLUMN token TEXT NOT NULL DEFAULT ''`)
 	return &Store{db: db}, nil
 }
 

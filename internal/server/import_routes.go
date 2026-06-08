@@ -215,7 +215,7 @@ func (s *Server) handleSourceCheck(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": perr.Error()})
 		return
 	}
-	token := loadSourceToken()
+	token := src.Token
 	rawURL := s.upstreamSkillURL(owner, repo, src.SourceRef, src.SourceSubpath, token)
 
 	remote, ferr := fetchRaw(r.Context(), rawURL, token)
