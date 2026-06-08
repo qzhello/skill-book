@@ -1,0 +1,9 @@
+docs/specs/2026-06-08-s3-backup-design.md
+  ai_agent 1-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "d2c38c965e273912800c5798d55476a0ff41bfe9",
+  "prompts": {}
+}
