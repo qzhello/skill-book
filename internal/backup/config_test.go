@@ -8,10 +8,10 @@ func TestConfiguredRequiresAllCoreFields(t *testing.T) {
 		t.Fatal("expected Configured()=true when all core fields present")
 	}
 	cases := []Config{
-		{Bucket: "b", AccessKey: "ak", SecretKey: "sk"},          // 缺 endpoint
-		{Endpoint: "e", AccessKey: "ak", SecretKey: "sk"},        // 缺 bucket
-		{Endpoint: "e", Bucket: "b", SecretKey: "sk"},            // 缺 accessKey
-		{Endpoint: "e", Bucket: "b", AccessKey: "ak"},            // 缺 secretKey
+		{Bucket: "b", AccessKey: "ak", SecretKey: "sk"},   // 缺 endpoint
+		{Endpoint: "e", AccessKey: "ak", SecretKey: "sk"}, // 缺 bucket
+		{Endpoint: "e", Bucket: "b", SecretKey: "sk"},     // 缺 accessKey
+		{Endpoint: "e", Bucket: "b", AccessKey: "ak"},     // 缺 secretKey
 	}
 	for i, c := range cases {
 		if c.Configured() {

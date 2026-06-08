@@ -21,10 +21,10 @@ const (
 
 // Config 是 S3 备份配置，持久化在 ~/.skillbook/backup.json。
 type Config struct {
-	Endpoint  string `json:"endpoint"`  // 如 s3.amazonaws.com / R2 / MinIO / OSS 地址（不含协议）
-	Region    string `json:"region"`    // 如 us-east-1；部分兼容服务可留空
+	Endpoint  string `json:"endpoint"` // 如 s3.amazonaws.com / R2 / MinIO / OSS 地址（不含协议）
+	Region    string `json:"region"`   // 如 us-east-1；部分兼容服务可留空
 	Bucket    string `json:"bucket"`
-	Prefix    string `json:"prefix"`    // key 前缀，默认 skillbook/
+	Prefix    string `json:"prefix"` // key 前缀，默认 skillbook/
 	AccessKey string `json:"accessKey"`
 	SecretKey string `json:"secretKey"` // 仅本机明文存储（0600），GET 永不回显
 	UseSSL    bool   `json:"useSSL"`    // 是否用 HTTPS
