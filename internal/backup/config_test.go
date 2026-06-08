@@ -1,6 +1,9 @@
 package backup
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 func TestConfiguredRequiresAllCoreFields(t *testing.T) {
 	full := Config{Endpoint: "s3.amazonaws.com", Bucket: "b", AccessKey: "ak", SecretKey: "sk"}
@@ -41,5 +44,43 @@ func TestEffectiveKeepCountDefault(t *testing.T) {
 	}
 	if got := (Config{KeepCount: -1}).EffectiveKeepCount(); got != 20 {
 		t.Fatalf("negative keepCount => %d, want 20", got)
+	}
+}
+
+func TestSaveLoadRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	in := Config{Endpoint: "s3.amazonaws.com", Region: "us-east-1", Bucket: "bk",
+		Prefix: "skillbook/", AccessKey: "AKIA", SecretKey: "sk", UseSSL: true, KeepCount: 7}
+	if err := Save(in); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got := Load()
+	if got != in {
+		t.Fatalf("round-trip mismatch:\n got %+v\nwant %+v", got, in)
+	}
+}
+
+func TestSaveUses0600(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := Save(Config{Endpoint: "e", Bucket: "b", AccessKey: "a", SecretKey: "s"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	p, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Fatalf("perm=%o want 600", perm)
+	}
+}
+
+func TestLoadMissingReturnsEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if got := Load(); got.Configured() {
+		t.Fatalf("missing config should be empty/unconfigured, got %+v", got)
 	}
 }

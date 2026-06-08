@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -51,7 +53,10 @@ func packArchive(srcs []SrcDir, now time.Time) ([]byte, Manifest, error) {
 		man.TotalFiles += n
 	}
 	// manifest 最后写（内容此时才完整）
-	mraw, _ := json.MarshalIndent(man, "", "  ")
+	mraw, err := json.MarshalIndent(man, "", "  ")
+	if err != nil {
+		return nil, Manifest{}, fmt.Errorf("marshal manifest: %w", err)
+	}
 	if err := writeTarFile(tw, manifestName, mraw); err != nil {
 		return nil, Manifest{}, err
 	}
@@ -140,7 +145,7 @@ func unpackArchive(data []byte, dsts map[string]string, trashFn func(string) (st
 	trashed := map[string]bool{}
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

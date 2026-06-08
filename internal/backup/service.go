@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"log"
 	"path/filepath"
 	"time"
 
@@ -85,10 +86,15 @@ func (s *Service) Push(ctx context.Context, cfg Config) (PushResult, error) {
 		return PushResult{}, err
 	}
 	removed := 0
-	if list, err := st.List(ctx); err == nil {
+	list, lerr := st.List(ctx)
+	if lerr != nil {
+		log.Printf("backup: prune skipped, list failed: %v", lerr)
+	} else {
 		keep := cfg.EffectiveKeepCount()
 		for i := keep; i < len(list); i++ { // list 已按时间倒序，尾部是最旧
-			if derr := st.Delete(ctx, list[i].Key); derr == nil {
+			if derr := st.Delete(ctx, list[i].Key); derr != nil {
+				log.Printf("backup: prune delete %s failed: %v", list[i].Key, derr)
+			} else {
 				removed++
 			}
 		}

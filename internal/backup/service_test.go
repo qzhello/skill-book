@@ -73,7 +73,9 @@ func parseIntSafe(s string) int {
 
 func newSvc(t *testing.T, fs *fakeStore) *Service {
 	src := t.TempDir()
-	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("x"), 0o644)
+	if err := os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	return &Service{
 		Srcs:     []SrcDir{{Sub: "claude", Path: src}},
 		NewStore: func(Config) (ArchiveStore, error) { return fs, nil },
@@ -133,7 +135,9 @@ func TestRestoreSpecificVersion(t *testing.T) {
 	// 改恢复目标到新目录
 	dst := t.TempDir()
 	s.Srcs[0].Path = dst
-	os.WriteFile(filepath.Join(dst, "stale.md"), []byte("stale"), 0o644)
+	if err := os.WriteFile(filepath.Join(dst, "stale.md"), []byte("stale"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var trashed []string
 	trashFn := func(p string) (string, error) { trashed = append(trashed, p); return p, os.RemoveAll(p) }
 
