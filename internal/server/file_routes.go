@@ -70,8 +70,15 @@ func (s *Server) handleNewSkill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"id": sk.ID()})
 }
 
-// handleReveal 在 Finder 中定位一个属于库内 skill 的文件。
-// 仅当 path 命中库中某个 skill 的 file_path 时才执行，防越权。
+// revealFn 执行“在 Finder 中定位”。默认用 macOS `open -R`；测试可注入。
+var revealFn func(path string) error
+
+func defaultReveal(path string) error {
+	return exec.Command("open", "-R", path).Run()
+}
+
+// handleReveal 在 Finder 中定位一个属于库内 skill 目录的文件。
+// 仅当 path 落在库中某个 skill 目录内时才执行，防越权。
 func (s *Server) handleReveal(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
@@ -79,8 +86,8 @@ func (s *Server) handleReveal(w http.ResponseWriter, r *http.Request) {
 	if !readJSONBody(w, r, &body) {
 		return
 	}
-
-	if !s.isKnownSkillPath(body.Path) {
+	abs := filepath.Clean(body.Path)
+	if s.skillForPath(abs) == nil {
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "path 不在库中"})
 		return
 	}
@@ -88,26 +95,13 @@ func (s *Server) handleReveal(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "仅 macOS 支持在 Finder 打开"})
 		return
 	}
-	if err := exec.Command("open", "-R", body.Path).Run(); err != nil {
+	fn := revealFn
+	if fn == nil {
+		fn = defaultReveal
+	}
+	if err := fn(abs); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revealed"})
-}
-
-// isKnownSkillPath 检查 path 是否等于库中某个 skill 的 file_path。
-func (s *Server) isKnownSkillPath(path string) bool {
-	if path == "" {
-		return false
-	}
-	skills, err := s.st.List()
-	if err != nil {
-		return false
-	}
-	for _, sk := range skills {
-		if sk.FilePath == path {
-			return true
-		}
-	}
-	return false
 }
